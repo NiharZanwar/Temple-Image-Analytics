@@ -1,5 +1,23 @@
-
-
+# import the necessary packages
+from keras.models import Sequential
+from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import MaxPooling2D
+from keras.layers import Dropout
+from keras.layers.core import Activation
+from keras.layers.core import Flatten
+from keras.layers.core import Dense
+from keras.optimizers import Adam
+from sklearn.preprocessing import LabelBinarizer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
+# from PIL import Image
+import cv2
+from imutils import paths
+#import imutils
+import numpy as np
+import argparse
+import os
+import keras
 
 
 
@@ -66,6 +84,15 @@ class TempleNNTrainer():
         '''
         pass
 
+    def preprocess_image(self,image):
+        '''
+        Return the preprocessed image. Scaling by scale factor
+        :param image:
+        :return:
+        '''
+        #Using scale to scale (down) image
+        return(np.array(cv2.resize(image,None,fx=self.image_scale_factor,fy=self.image_scale_factor))/255.0)
+
     def get_training_data(self):
         '''
         This method will use the path for the training data (stored as a class attribute)
@@ -77,6 +104,36 @@ class TempleNNTrainer():
         INPUT: None
         OUTPUT: Dictionary containing 2 Numpy ndarrays containing data from multiple images
         '''
+        current_working_directory=os.getcwd()
+        imagePaths = list(paths.list_images(self.training_data_path))
+        os.chdir(self.training_data_path)
+        self.classes = os.listdir()
+        os.chdir(current_working_directory)
+
+        data=[]
+        labels=[]
+        #Traverse all the paths and load the preprocessed images
+        for imagePath in imagePaths:
+            image = cv2.imread(imagePath)
+            image = self.preprocess_image(image)
+            data.append(image)
+
+            # extract the class label from the file path and update the labels list
+            label = imagePath.split(os.path.sep)[-2]
+            labels.append(label)
+
+        # encode the labels, converting them from strings to integers
+        lb = LabelBinarizer()
+        labels = lb.fit_transform(labels)
+        #When no. of classes is 2, then Label Binariser doesnt behave as we want it to
+        #Thus this will get it into a format we want
+        if len(self.classes==2):
+            labels = np.hstack((labels, 1 - labels))
+
+        #Form the training dataset using the data and labels
+        self.training_data["data"]=data
+        self.training_data["labels"]=labels
+
         pass
 
     def create_model_architecture(self):
@@ -88,6 +145,28 @@ class TempleNNTrainer():
         INPUT: None (Inputs taken from class attributes)
         OUTPUT: None (A class attribute called model will be set by the method)
         '''
+        
+        # define our Convolutional Neural Network architecture
+        self.model = Sequential()
+        self.model.add(Conv2D(8, (3, 3), padding="same", input_shape=(resized_shape[0], resized_shape[1], 3)))
+        self.model.add(Activation("relu"))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(0.25))
+        self.model.add(Conv2D(16, (3, 3), padding="same"))
+        self.model.add(Activation("relu"))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(0.25))
+        self.model.add(Conv2D(32, (3, 3), padding="same"))
+        self.model.add(Activation("relu"))
+        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+        self.model.add(Dropout(0.25))
+        self.model.add(Flatten())
+        self.model.add(Dense(20))
+        self.model.add(Activation("tanh"))
+        self.model.add(Dense(10))
+        self.model.add(Activation("tanh"))
+        self.model.add(Dense(len(self.classes)))
+        self.model.add(Activation("softmax"))
         pass
 
     def train_model(self):
@@ -99,6 +178,20 @@ class TempleNNTrainer():
         INPUT: None
         OUTPUT: Trained model for the particular temple
         '''
+        # Assuming self.training_data is a dictionary containing data(X) and target variable(one hot encoded)
+
+        # perform a training and testing split, using 75% of the data for
+        # training and 25% for evaluation
+        data=self.training_data["data"]
+        labels=self.training_data["labels"]
+        (trainX, testX, trainY, testY) = train_test_split(np.array(data),np.array(labels), test_size=0.25)
+
+        # train the model using the Adam optimizer. Adding early stopping callback
+        es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+        print("[INFO] training network...")
+        opt = Adam(lr=self.adam_learning_rate, decay=self.adam_decay)#Adam(lr=1e-3, decay=1e-3 / 50)
+        self.model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
+        H = self.model.fit(trainX, trainY, validation_data=(testX, testY),epochs=30, batch_size=32,callbacks=[es_callback],verbose=0)
         pass
 
     def save_model(self,save_to_path):
