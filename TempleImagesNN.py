@@ -18,10 +18,12 @@ import numpy as np
 import argparse
 import os
 import keras
+import json
 
 
 
 class TempleNNTrainer():
+
     def __init__(self):
         '''
         Creates an object of the TempleNNTrainer. Calls get_config to get info and set class variables.
@@ -82,6 +84,17 @@ class TempleNNTrainer():
         INPUT: Path to config/json file
         OUTPUT: None (The relevant class attributes will be set)
         '''
+
+        #Opening and reading contents of file as json
+        with open(config_file_path,'r') as config_file:
+            config_json=json.load(config_file)
+
+        #Now we have the json file. We'll set the attributes accordingly
+        self.training_data_path=config_json["training data path"]
+        self.hyperparameters=config_json["hyperparameters"]
+        self.log_file_path=config_json["log file path"]
+        self.save_model_path=config_json["save model path"]
+
         pass
 
     def preprocess_image(self,image):
