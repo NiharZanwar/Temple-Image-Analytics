@@ -205,6 +205,21 @@ class TempleNNTrainer():
         :param save_to_path:
         OUPTUT: None (The model is saved to the specified path(in database or locally))
         '''
+        #Make the necessary directories in the path if it doesnt exist
+        if not os.path.isdir(save_to_path):
+            os.makedirs(save_to_path)
+
+        model_arch_path=os.path.join(save_to_path,"model_architecture.json")
+        model_weights_path=os.path.join(save_to_path, "model_weights.h5")
+
+        # serialize model to JSON
+        model_json = self.model.to_json()
+        with open(model_arch_path, "w") as json_file:
+            json_file.write(model_json)
+        # serialize weights to HDF5
+        self.model.save_weights(model_weights_path)
+
+        #Log the saving of the path
         pass
 
     def update_database(self):
