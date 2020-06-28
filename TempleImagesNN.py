@@ -24,7 +24,7 @@ import json
 
 class TempleNNTrainer():
 
-    def __init__(self):
+    def __init__(self,config_file_path):
         '''
         Creates an object of the TempleNNTrainer. Calls get_config to get info and set class variables.
         Then, based on the class attributes, will perform other functions. Option to perform training
@@ -59,7 +59,37 @@ class TempleNNTrainer():
 
         !!More attributes may be added with time
 
+        :param config_file_path: Path of the config file, to configure the neural network
         '''
+        #Initialising all attributes
+        self.config_file_path=config_file_path
+        self.log_file_path = None
+        self.training_data_path = None
+        self.save_model_path = None
+
+        self.model = None
+        self.hyperparameters={}
+        self.classes=None
+        self.resized_image_shape=None
+        self.image_scale_factor=None
+
+        self.training_data={}
+
+        #Calling get_config() to get config file and set up the attributes
+        self.get_config(config_file_path)
+
+        #Now getting training data from the database in order to train the model
+        self.get_training_data()
+
+        #Creating the architecture of the model
+        self.create_model_architecture()
+
+        #Training the model
+        self.train_model()
+
+        #Save the model in the path specified
+        self.save_model(self.save_model_path)
+
         pass
 
     def check_for_trained_model(self):
@@ -147,7 +177,7 @@ class TempleNNTrainer():
         labels = lb.fit_transform(labels)
         #When no. of classes is 2, then Label Binariser doesnt behave as we want it to
         #Thus this will get it into a format we want
-        if len(self.classes==2):
+        if len(self.classes)==2:
             labels = np.hstack((labels, 1 - labels))
 
         #Form the training dataset using the data and labels
@@ -209,7 +239,7 @@ class TempleNNTrainer():
         # train the model using the Adam optimizer. Adding early stopping callback
         es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
         print("[INFO] training network...")
-        opt = Adam(lr=self.adam_learning_rate, decay=self.adam_decay)#Adam(lr=1e-3, decay=1e-3 / 50)
+        opt = Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])#Adam(lr=1e-3, decay=1e-3 / 50)
         self.model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
         H = self.model.fit(trainX, trainY, validation_data=(testX, testY),epochs=30, batch_size=32,callbacks=[es_callback],verbose=0)
         pass
@@ -250,6 +280,13 @@ class TempleNNTrainer():
         '''
         pass
 
+    def logger(self,message):
+        with open(self.log_file_path,'w') as log_file:
+            log_file.write(message)
+            log_file.write("\n")
+
+
+
 
 
 class TempleImagesPredictor():
@@ -268,6 +305,8 @@ class TempleImagesPredictor():
         !!Any information that will be required to get info from the database will also be present
 
         '''
+        self.models={}
+
         pass
 
     def preprocess_image(self, image):
@@ -390,3 +429,8 @@ class TempleImagesPredictor():
         :return: True/False along with error code if necessary
         '''
         pass
+
+    def logger(self,message):
+        with open(self.log_file_path,'w') as log_file:
+            log_file.write(message)
+            log_file.write("\n")
