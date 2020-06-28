@@ -309,18 +309,27 @@ class TempleImagesPredictor():
 
         pass
 
+    def load_model(self,nn_id):
+        '''
+        Using the nn_id, this function loads the model (present in self.models) as the current_model.
+        The other attributes such as resized_image_size, labels etc will be reset to match the
+        one appropriate to the current_model
+        :param nn_id: Neural Network Id
+        :return:
+        '''
+        #Loading the model first
+        self.current_model=self.models[nn_id]["model"]
+
+        self.resized_image_shape=self.models[nn_id]["resized_image_shape"]
+        self.class_labels=self.models[nn_id]["class_labels"]
+
+
     def preprocess_image(self, image):
         '''
         Return the preprocessed image. Scaling by scale factor
         :param image:
         :return:
         '''
-        # First check if the resized_image_shape attribute is set. If not, set it using the scale
-        if not self.resized_image_shape:
-            length = image.shape[0] * self.image_scale_factor
-            width = image.shape[1] * self.image_scale_factor
-            new_shape = tuple([length, width, 3])
-            self.resized_image_shape = new_shape
 
         # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
         return (np.array(cv2.resize(image, tuple([self.resized_image_shape[1], self.resized_image_shape[0]]))) / 255.0)
