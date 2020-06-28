@@ -270,18 +270,63 @@ class TempleImagesPredictor():
         '''
         pass
 
+    def preprocess_image(self, image):
+        '''
+        Return the preprocessed image. Scaling by scale factor
+        :param image:
+        :return:
+        '''
+        # First check if the resized_image_shape attribute is set. If not, set it using the scale
+        if not self.resized_image_shape:
+            length = image.shape[0] * self.image_scale_factor
+            width = image.shape[1] * self.image_scale_factor
+            new_shape = tuple([length, width, 3])
+            self.resized_image_shape = new_shape
+
+        # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
+        return (np.array(cv2.resize(image, tuple([self.resized_image_shape[1], self.resized_image_shape[0]]))) / 255.0)
+
+    def get_label(self,prediction,labels):
+        '''
+        Given a prediction score list and labels, return the category that the image belongs to/Anomaly
+        :param prediction: List of prediction scores (last layer output of model)
+        :param labels:  Labels for the categories in order
+        :return: Label of the image / Anomaly
+        '''
+        #Flatten the prediction list and find the index of the maximum element
+        #Check if it is greater than a threshold, and give output accordingly
+        prediction = np.array(prediction).flatten()
+        max_prediction_ind = np.argmax(prediction)
+        # print("max_prediction_ind is",max_prediction_ind)
+        max_prediction = prediction[max_prediction_ind]
+        if max_prediction<self.min_confidence:
+            return("No category (Anomaly)")
+        else:
+            return(labels[max_prediction_ind])
+
     def predict(self,input,model,labels):
         '''
         This method uses the model provided and the labels (in a specific format) to transform the input to an output
         Optionally, the prediction scores could also be outputted.
         Based on the kind of model used, different preprocessing to the image has to be done
 
-        :param input: Input image/data. The image will be scaled down and transformed according to the extra info
+        :param input: Input batch of (list of) image/data. The image will be scaled down and transformed according to the extra info
                     given along with the model
         :param model: Trained model used for prediction
         :param labels: Label to attach to the prediction (for human-readability)
         :return: give appropriate label to the image/data, with its prediction score
         '''
+        no_of_images=len(input)
+        classes=[]
+        #Apply model to each input and get the classes using the get_label() function
+        predictions=model.predict(input)
+        for prediction in predictions:
+            classes.append(self.get_label(prediction,labels))
+
+        return(classes)
+
+
+
         pass
 
     def check_database_for_queries(self):
