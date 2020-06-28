@@ -315,14 +315,14 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def preprocess_image(self,image):
-        '''
-        This method preprocesses the image before it is sent to the predict function
-        eg. Turn to grayscale image, scale down th image, add dimensions to the image etc.
-        :param image: image to be preprocessed
-        :return: processed_image: preprocessed version of image
-        '''
-        pass
+    # def preprocess_image(self,image):
+    #     '''
+    #     This method preprocesses the image before it is sent to the predict function
+    #     eg. Turn to grayscale image, scale down th image, add dimensions to the image etc.
+    #     :param image: image to be preprocessed
+    #     :return: processed_image: preprocessed version of image
+    #     '''
+    #     pass
 
     def update_database_queries(self,queries_to_update):
         '''
