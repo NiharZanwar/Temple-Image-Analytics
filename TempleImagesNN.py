@@ -1,4 +1,5 @@
 # import the necessary packages
+
 from keras.models import Sequential
 from keras.layers.convolutional import Conv2D
 from keras.layers.convolutional import MaxPooling2D
@@ -19,6 +20,7 @@ import argparse
 import os
 import keras
 import json
+import traceback
 
 
 
@@ -115,15 +117,22 @@ class TempleNNTrainer():
         OUTPUT: None (The relevant class attributes will be set)
         '''
 
-        #Opening and reading contents of file as json
-        with open(config_file_path,'r') as config_file:
-            config_json=json.load(config_file)
 
-        #Now we have the json file. We'll set the attributes accordingly
-        self.training_data_path=config_json["training data path"]
-        self.hyperparameters=config_json["hyperparameters"]
-        self.log_file_path=config_json["log file path"]
-        self.save_model_path=config_json["save model path"]
+        try:
+            # Opening and reading contents of file as json
+            with open(config_file_path,'r') as config_file:
+                config_json=json.load(config_file)
+
+            #Now we have the json file. We'll set the attributes accordingly
+            self.training_data_path=config_json["training data path"]
+            self.hyperparameters=config_json["hyperparameters"]
+            self.log_file_path=config_json["log file path"]
+            self.save_model_path=config_json["save model path"]
+
+        ##Catching all errors as tracebacks are logged
+        except:
+            error_traceback=traceback.format_exc()
+            self.logger(error_traceback)
 
         pass
 
@@ -133,15 +142,26 @@ class TempleNNTrainer():
         :param image:
         :return:
         '''
-        #First check if the resized_image_shape attribute is set. If not, set it using the scale
-        if not self.resized_image_shape:
-            length=image.shape[0]*self.image_scale_factor
-            width=image.shape[1]*self.image_scale_factor
-            new_shape=tuple([length,width,3])
-            self.resized_image_shape=new_shape
+        try:
+            #First check if the resized_image_shape attribute is set. If not, set it using the scale
+            if not self.resized_image_shape:
+                length=image.shape[0]*self.image_scale_factor
+                width=image.shape[1]*self.image_scale_factor
+                new_shape=tuple([length,width,3])
+                self.resized_image_shape=new_shape
 
-        #Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
-        return(np.array(cv2.resize(image,tuple([self.resized_image_shape[1],self.resized_image_shape[0]])))/255.0)
+            #Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
+            processed_image=(np.array(cv2.resize(image,tuple([self.resized_image_shape[1],
+                                                              self.resized_image_shape[0]])))/255.0)
+
+        ##Catching all errors as tracebacks are logged
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
+            return(None)
+
+        else:
+            return(processed_image)
 
     def get_training_data(self):
         '''
@@ -154,35 +174,41 @@ class TempleNNTrainer():
         INPUT: None
         OUTPUT: Dictionary containing 2 Numpy ndarrays containing data from multiple images
         '''
-        current_working_directory=os.getcwd()
-        imagePaths = list(paths.list_images(self.training_data_path))
-        os.chdir(self.training_data_path)
-        self.classes = os.listdir()
-        os.chdir(current_working_directory)
+        try:
+            #Getting the classes to categorise in
+            current_working_directory=os.getcwd()
+            imagePaths = list(paths.list_images(self.training_data_path))
+            os.chdir(self.training_data_path)
+            self.classes = os.listdir()
+            os.chdir(current_working_directory)
 
-        data=[]
-        labels=[]
-        #Traverse all the paths and load the preprocessed images
-        for imagePath in imagePaths:
-            image = cv2.imread(imagePath)
-            image = self.preprocess_image(image)
-            data.append(image)
+            data=[]
+            labels=[]
+            #Traverse all the paths and load the preprocessed images
+            for imagePath in imagePaths:
+                image = cv2.imread(imagePath)
+                image = self.preprocess_image(image)
+                data.append(image)
 
-            # extract the class label from the file path and update the labels list
-            label = imagePath.split(os.path.sep)[-2]
-            labels.append(label)
+                # extract the class label from the file path and update the labels list
+                label = imagePath.split(os.path.sep)[-2]
+                labels.append(label)
 
-        # encode the labels, converting them from strings to integers
-        lb = LabelBinarizer()
-        labels = lb.fit_transform(labels)
-        #When no. of classes is 2, then Label Binariser doesnt behave as we want it to
-        #Thus this will get it into a format we want
-        if len(self.classes)==2:
-            labels = np.hstack((labels, 1 - labels))
+            # encode the labels, converting them from strings to integers
+            lb = LabelBinarizer()
+            labels = lb.fit_transform(labels)
+            #When no. of classes is 2, then Label Binariser doesnt behave as we want it to
+            #Thus this will get it into a format we want
+            if len(self.classes)==2:
+                labels = np.hstack((labels, 1 - labels))
 
-        #Form the training dataset using the data and labels
-        self.training_data["data"]=data
-        self.training_data["labels"]=labels
+            #Form the training dataset using the data and labels
+            self.training_data["data"]=data
+            self.training_data["labels"]=labels
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
 
         pass
 
@@ -195,28 +221,33 @@ class TempleNNTrainer():
         INPUT: None (Inputs taken from class attributes)
         OUTPUT: None (A class attribute called model will be set by the method)
         '''
-        
-        # define our Convolutional Neural Network architecture
-        self.model = Sequential()
-        self.model.add(Conv2D(8, (3, 3), padding="same", input_shape=self.resized_image_shape))
-        self.model.add(Activation("relu"))
-        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-        self.model.add(Dropout(0.25))
-        self.model.add(Conv2D(16, (3, 3), padding="same"))
-        self.model.add(Activation("relu"))
-        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-        self.model.add(Dropout(0.25))
-        self.model.add(Conv2D(32, (3, 3), padding="same"))
-        self.model.add(Activation("relu"))
-        self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-        self.model.add(Dropout(0.25))
-        self.model.add(Flatten())
-        self.model.add(Dense(20))
-        self.model.add(Activation("tanh"))
-        self.model.add(Dense(10))
-        self.model.add(Activation("tanh"))
-        self.model.add(Dense(len(self.classes)))
-        self.model.add(Activation("softmax"))
+        try:
+            # define our Convolutional Neural Network architecture
+            self.model = Sequential()
+            self.model.add(Conv2D(8, (3, 3), padding="same", input_shape=self.resized_image_shape))
+            self.model.add(Activation("relu"))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+            self.model.add(Dropout(0.25))
+            self.model.add(Conv2D(16, (3, 3), padding="same"))
+            self.model.add(Activation("relu"))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+            self.model.add(Dropout(0.25))
+            self.model.add(Conv2D(32, (3, 3), padding="same"))
+            self.model.add(Activation("relu"))
+            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+            self.model.add(Dropout(0.25))
+            self.model.add(Flatten())
+            self.model.add(Dense(20))
+            self.model.add(Activation("tanh"))
+            self.model.add(Dense(10))
+            self.model.add(Activation("tanh"))
+            self.model.add(Dense(len(self.classes)))
+            self.model.add(Activation("softmax"))
+
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
         pass
 
     def train_model(self):
@@ -228,20 +259,26 @@ class TempleNNTrainer():
         INPUT: None
         OUTPUT: Trained model for the particular temple
         '''
-        # Assuming self.training_data is a dictionary containing data(X) and target variable(one hot encoded)
+        try:
+            # Assuming self.training_data is a dictionary containing data(X) and target variable(one hot encoded)
 
-        # perform a training and testing split, using 75% of the data for
-        # training and 25% for evaluation
-        data=self.training_data["data"]
-        labels=self.training_data["labels"]
-        (trainX, testX, trainY, testY) = train_test_split(np.array(data),np.array(labels), test_size=0.25)
+            # perform a training and testing split, using 75% of the data for
+            # training and 25% for evaluation
+            data=self.training_data["data"]
+            labels=self.training_data["labels"]
+            (trainX, testX, trainY, testY) = train_test_split(np.array(data),np.array(labels), test_size=0.25)
 
-        # train the model using the Adam optimizer. Adding early stopping callback
-        es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
-        print("[INFO] training network...")
-        opt = Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])#Adam(lr=1e-3, decay=1e-3 / 50)
-        self.model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
-        H = self.model.fit(trainX, trainY, validation_data=(testX, testY),epochs=30, batch_size=32,callbacks=[es_callback],verbose=0)
+            # train the model using the Adam optimizer. Adding early stopping callback
+            es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+            #print("[INFO] training network...")
+            opt = Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])#Adam(lr=1e-3, decay=1e-3 / 50)
+            self.model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
+            H = self.model.fit(trainX, trainY, validation_data=(testX, testY),epochs=30, batch_size=32,callbacks=[es_callback],verbose=0)
+
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
         pass
 
     def save_model(self,save_to_path):
@@ -255,21 +292,28 @@ class TempleNNTrainer():
         :param save_to_path:
         OUPTUT: None (The model is saved to the specified path(in database or locally))
         '''
-        #Make the necessary directories in the path if it doesnt exist
-        if not os.path.isdir(save_to_path):
-            os.makedirs(save_to_path)
+        try:
+            #Make the necessary directories in the path if it doesnt exist
+            if not os.path.isdir(save_to_path):
+                os.makedirs(save_to_path)
 
-        model_arch_path=os.path.join(save_to_path,"model_architecture.json")
-        model_weights_path=os.path.join(save_to_path, "model_weights.h5")
+            model_arch_path=os.path.join(save_to_path,"model_architecture.json")
+            model_weights_path=os.path.join(save_to_path, "model_weights.h5")
 
-        # serialize model to JSON
-        model_json = self.model.to_json()
-        with open(model_arch_path, "w") as json_file:
-            json_file.write(model_json)
-        # serialize weights to HDF5
-        self.model.save_weights(model_weights_path)
+            # serialize model to JSON
+            model_json = self.model.to_json()
+            with open(model_arch_path, "w") as json_file:
+                json_file.write(model_json)
+            # serialize weights to HDF5
+            self.model.save_weights(model_weights_path)
 
-        #Log the saving of the path
+            #Log the saving of the model
+            self.logger("Model saved in "+save_to_path)
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
+
         pass
 
     def update_database(self):
@@ -290,6 +334,7 @@ class TempleNNTrainer():
 
 
 class TempleImagesPredictor():
+
     def __init__(self):
         '''
         This class handles the prediction of categories (or similar/dissimilar) for query images.
@@ -306,6 +351,7 @@ class TempleImagesPredictor():
 
         '''
         self.models={}
+        self.min_confidence=0.5
 
         pass
 
@@ -317,12 +363,16 @@ class TempleImagesPredictor():
         :param nn_id: Neural Network Id
         :return:
         '''
-        #Loading the model first
-        self.current_model=self.models[nn_id]["model"]
+        try:
+            #Loading the model first
+            self.current_model=self.models[nn_id]["model"]
 
-        self.resized_image_shape=self.models[nn_id]["resized_image_shape"]
-        self.class_labels=self.models[nn_id]["class_labels"]
+            self.resized_image_shape=self.models[nn_id]["resized_image_shape"]
+            self.class_labels=self.models[nn_id]["class_labels"]
 
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
 
     def preprocess_image(self, image):
         '''
@@ -330,9 +380,17 @@ class TempleImagesPredictor():
         :param image:
         :return:
         '''
+        try:
+            # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
+            processed_image=(np.array(cv2.resize(image, tuple([self.resized_image_shape[1],
+                                                               self.resized_image_shape[0]]))) / 255.0)
 
-        # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
-        return (np.array(cv2.resize(image, tuple([self.resized_image_shape[1], self.resized_image_shape[0]]))) / 255.0)
+            return(processed_image)
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
+            return(None)
 
     def get_label(self,prediction,labels):
         '''
@@ -341,16 +399,22 @@ class TempleImagesPredictor():
         :param labels:  Labels for the categories in order
         :return: Label of the image / Anomaly
         '''
-        #Flatten the prediction list and find the index of the maximum element
-        #Check if it is greater than a threshold, and give output accordingly
-        prediction = np.array(prediction).flatten()
-        max_prediction_ind = np.argmax(prediction)
-        # print("max_prediction_ind is",max_prediction_ind)
-        max_prediction = prediction[max_prediction_ind]
-        if max_prediction<self.min_confidence:
-            return("No category (Anomaly)")
-        else:
-            return(labels[max_prediction_ind])
+        try:
+            #Flatten the prediction list and find the index of the maximum element
+            #Check if it is greater than a threshold, and give output accordingly
+            prediction = np.array(prediction).flatten()
+            max_prediction_ind = np.argmax(prediction)
+            # print("max_prediction_ind is",max_prediction_ind)
+            max_prediction = prediction[max_prediction_ind]
+            if max_prediction<self.min_confidence:
+                return("No category (Anomaly)")
+            else:
+                return(labels[max_prediction_ind])
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
+            return(None)
 
     def predict(self,input,model,labels):
         '''
@@ -364,14 +428,20 @@ class TempleImagesPredictor():
         :param labels: Label to attach to the prediction (for human-readability)
         :return: give appropriate label to the image/data, with its prediction score
         '''
-        no_of_images=len(input)
-        classes=[]
-        #Apply model to each input and get the classes using the get_label() function
-        predictions=model.predict(input)
-        for prediction in predictions:
-            classes.append(self.get_label(prediction,labels))
+        try:
+            no_of_images=len(input)
+            classes=[]
+            #Apply model to each input and get the classes using the get_label() function
+            predictions=model.predict(input)
+            for prediction in predictions:
+                classes.append(self.get_label(prediction,labels))
 
-        return(classes)
+            return(classes)
+
+        except:
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
+            return(None)
 
 
 
