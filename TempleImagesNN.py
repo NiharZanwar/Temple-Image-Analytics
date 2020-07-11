@@ -1,32 +1,33 @@
 # import the necessary packages
 
-from keras.models import Sequential
-from keras.layers.convolutional import Conv2D
-from keras.layers.convolutional import MaxPooling2D
-from keras.layers import Dropout
-from keras.layers.core import Activation
-from keras.layers.core import Flatten
-from keras.layers.core import Dense
-from keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import model_from_json
+from tensorflow.keras.layers import Conv2D
+from tensorflow.keras.layers import MaxPooling2D
+from tensorflow.keras.layers import Dropout
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Flatten
+from tensorflow.keras.layers import Dense
+from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 # from PIL import Image
 import cv2
 from imutils import paths
-#import imutils
+# import imutils
 import numpy as np
 import argparse
 import os
-import keras
+# import tensorflow.keras
 import json
 import traceback
-
+import base64
 
 
 class TempleNNTrainer():
 
-    def __init__(self,config_file_path):
+    def __init__(self, config_file_path):
         '''
         Creates an object of the TempleNNTrainer. Calls get_config to get info and set class variables.
         Then, based on the class attributes, will perform other functions. Option to perform training
@@ -63,33 +64,46 @@ class TempleNNTrainer():
 
         :param config_file_path: Path of the config file, to configure the neural network
         '''
-        #Initialising all attributes
-        self.config_file_path=config_file_path
+        # Initialising all attributes
+
+        self.config_file_path = config_file_path
         self.log_file_path = None
         self.training_data_path = None
+        self.testing_data_path = None
         self.save_model_path = None
+        self.temple_id = None
 
         self.model = None
-        self.hyperparameters={}
-        self.classes=None
-        self.resized_image_shape=None
-        self.image_scale_factor=None
+        self.hyperparameters = {}
+        self.classes = None
+        self.resized_image_shape = None
+        self.image_scale_factor = 1 / 20
 
-        self.training_data={}
+        self.training_data = {}
+        self.testing_data = {}
+        self.testing_accuracy = 0
 
-        #Calling get_config() to get config file and set up the attributes
+        # Calling get_config() to get config file and set up the attributes
         self.get_config(config_file_path)
 
-        #Now getting training data from the database in order to train the model
+        self.logger("--------------------------------------------------------------------------------------------")
+
+        # Now getting training data from the database in order to train the model
         self.get_training_data()
 
-        #Creating the architecture of the model
+        # Creating the architecture of the model
         self.create_model_architecture()
 
-        #Training the model
+        # Training the model
         self.train_model()
 
-        #Save the model in the path specified
+        # Getting testing data
+        self.get_testing_data()
+
+        # Testing model
+        self.test_model()
+
+        # Save the model in the path specified
         self.save_model(self.save_model_path)
 
         pass
@@ -103,7 +117,7 @@ class TempleNNTrainer():
         '''
         pass
 
-    def get_config(self,config_file_path):
+    def get_config(self, config_file_path):
         '''
         This method takes in a  path to a config/json file as input.
         The file contains structured information on the new model to train.
@@ -117,51 +131,52 @@ class TempleNNTrainer():
         OUTPUT: None (The relevant class attributes will be set)
         '''
 
-
         try:
             # Opening and reading contents of file as json
-            with open(config_file_path,'r') as config_file:
-                config_json=json.load(config_file)
+            with open(config_file_path, 'r') as config_file:
+                config_json = json.load(config_file)
 
-            #Now we have the json file. We'll set the attributes accordingly
-            self.training_data_path=config_json["training data path"]
-            self.hyperparameters=config_json["hyperparameters"]
-            self.log_file_path=config_json["log file path"]
-            self.save_model_path=config_json["save model path"]
+            # Now we have the json file. We'll set the attributes accordingly
+            self.training_data_path = config_json["training data path"]
+            self.testing_data_path = config_json["testing data path"]
+            # self.hyperparameters=config_json["hyperparameters"]
+            self.log_file_path = config_json["log file path"]
+            self.save_model_path = config_json["save model path"]
+            self.temple_id = config_json["temple id"]
 
         ##Catching all errors as tracebacks are logged
         except:
-            error_traceback=traceback.format_exc()
+            error_traceback = traceback.format_exc()
             self.logger(error_traceback)
 
         pass
 
-    def preprocess_image(self,image):
+    def preprocess_image(self, image):
         '''
         Return the preprocessed image. Scaling by scale factor
         :param image:
         :return:
         '''
         try:
-            #First check if the resized_image_shape attribute is set. If not, set it using the scale
+            # First check if the resized_image_shape attribute is set. If not, set it using the scale
             if not self.resized_image_shape:
-                length=image.shape[0]*self.image_scale_factor
-                width=image.shape[1]*self.image_scale_factor
-                new_shape=tuple([length,width,3])
-                self.resized_image_shape=new_shape
+                length = image.shape[0] * self.image_scale_factor
+                width = image.shape[1] * self.image_scale_factor
+                new_shape = tuple([int(length), int(width), 3])
+                self.resized_image_shape = new_shape
 
-            #Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
-            processed_image=(np.array(cv2.resize(image,tuple([self.resized_image_shape[1],
-                                                              self.resized_image_shape[0]])))/255.0)
+            # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
+            processed_image = (np.array(cv2.resize(image, tuple([self.resized_image_shape[1],
+                                                                 self.resized_image_shape[0]]))) / 255.0)
 
         ##Catching all errors as tracebacks are logged
         except:
             error_traceback = traceback.format_exc()
             self.logger(error_traceback)
-            return(None)
+            return (None)
 
         else:
-            return(processed_image)
+            return (processed_image)
 
     def get_training_data(self):
         '''
@@ -175,16 +190,16 @@ class TempleNNTrainer():
         OUTPUT: Dictionary containing 2 Numpy ndarrays containing data from multiple images
         '''
         try:
-            #Getting the classes to categorise in
-            current_working_directory=os.getcwd()
+            # Getting the classes to categorise in
+            current_working_directory = os.getcwd()
             imagePaths = list(paths.list_images(self.training_data_path))
             os.chdir(self.training_data_path)
             self.classes = os.listdir()
             os.chdir(current_working_directory)
 
-            data=[]
-            labels=[]
-            #Traverse all the paths and load the preprocessed images
+            data = []
+            labels = []
+            # Traverse all the paths and load the preprocessed images
             for imagePath in imagePaths:
                 image = cv2.imread(imagePath)
                 image = self.preprocess_image(image)
@@ -197,14 +212,14 @@ class TempleNNTrainer():
             # encode the labels, converting them from strings to integers
             lb = LabelBinarizer()
             labels = lb.fit_transform(labels)
-            #When no. of classes is 2, then Label Binariser doesnt behave as we want it to
-            #Thus this will get it into a format we want
-            if len(self.classes)==2:
+            # When no. of classes is 2, then Label Binariser doesnt behave as we want it to
+            # Thus this will get it into a format we want
+            if len(self.classes) == 2:
                 labels = np.hstack((labels, 1 - labels))
 
-            #Form the training dataset using the data and labels
-            self.training_data["data"]=data
-            self.training_data["labels"]=labels
+            # Form the training dataset using the data and labels
+            self.training_data["data"] = data
+            self.training_data["labels"] = labels
 
         except:
             error_traceback = traceback.format_exc()
@@ -222,25 +237,28 @@ class TempleNNTrainer():
         OUTPUT: None (A class attribute called model will be set by the method)
         '''
         try:
+            dropout_prob = 0.5
             # define our Convolutional Neural Network architecture
             self.model = Sequential()
             self.model.add(Conv2D(8, (3, 3), padding="same", input_shape=self.resized_image_shape))
             self.model.add(Activation("relu"))
             self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-            self.model.add(Dropout(0.25))
+            self.model.add(Dropout(dropout_prob))
             self.model.add(Conv2D(16, (3, 3), padding="same"))
             self.model.add(Activation("relu"))
             self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-            self.model.add(Dropout(0.25))
-            self.model.add(Conv2D(32, (3, 3), padding="same"))
-            self.model.add(Activation("relu"))
-            self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
-            self.model.add(Dropout(0.25))
+            self.model.add(Dropout(dropout_prob))
+            # self.model.add(Conv2D(32, (3, 3), padding="same"))
+            # self.model.add(Activation("relu"))
+            # self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
+            # self.model.add(Dropout(dropout_prob))
             self.model.add(Flatten())
             self.model.add(Dense(20))
             self.model.add(Activation("tanh"))
+            self.model.add(Dropout(dropout_prob))
             self.model.add(Dense(10))
             self.model.add(Activation("tanh"))
+            self.model.add(Dropout(dropout_prob))
             self.model.add(Dense(len(self.classes)))
             self.model.add(Activation("softmax"))
 
@@ -260,20 +278,28 @@ class TempleNNTrainer():
         OUTPUT: Trained model for the particular temple
         '''
         try:
+
             # Assuming self.training_data is a dictionary containing data(X) and target variable(one hot encoded)
 
             # perform a training and testing split, using 75% of the data for
             # training and 25% for evaluation
-            data=self.training_data["data"]
-            labels=self.training_data["labels"]
-            (trainX, testX, trainY, testY) = train_test_split(np.array(data),np.array(labels), test_size=0.25)
+            data = self.training_data["data"]
+            labels = self.training_data["labels"]
+
+            # print("Training data is",data)
+            # print("Training labels are",labels)
+            (trainX, testX, trainY, testY) = train_test_split(np.array(data), np.array(labels), test_size=0.25)
 
             # train the model using the Adam optimizer. Adding early stopping callback
-            es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
-            #print("[INFO] training network...")
-            opt = Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])#Adam(lr=1e-3, decay=1e-3 / 50)
-            self.model.compile(loss="categorical_crossentropy", optimizer=opt,metrics=["accuracy"])
-            H = self.model.fit(trainX, trainY, validation_data=(testX, testY),epochs=30, batch_size=32,callbacks=[es_callback],verbose=0)
+            # es_callback = keras.callbacks.EarlyStopping(monitor='val_loss', patience=3)
+            # print("[INFO] training network...")
+            opt = Adam(lr=1e-3,
+                       decay=1e-3 / 50)  # Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])
+            self.model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+            H = self.model.fit(trainX, trainY, validation_data=(testX, testY), epochs=100,
+                               batch_size=32)  # ,callbacks=[es_callback])
+            print("H is")
+            print(H)
 
 
         except:
@@ -281,7 +307,46 @@ class TempleNNTrainer():
             self.logger(error_traceback)
         pass
 
-    def save_model(self,save_to_path):
+    def get_testing_data(self):
+        imagePaths = list(paths.list_images(self.testing_data_path))
+        print("Testing image paths are", imagePaths)
+
+        data = []
+        labels = []
+        # Traverse all the paths and load the preprocessed images
+        for imagePath in imagePaths:
+            image = cv2.imread(imagePath)
+            image = self.preprocess_image(image)
+            data.append(image)
+
+            # extract the class label from the file path and update the labels list
+            label = imagePath.split(os.path.sep)[-2]
+            labels.append(label)
+
+        # Form the testing dataset using the data and labels
+        self.testing_data["data"] = data
+        self.testing_data["labels"] = labels
+
+        # print("Testing data is",self.testing_data["data"])
+        # print("Testing labels is",self.testing_data["labels"])
+
+    def test_model(self):
+        no_of_images = len(self.testing_data["data"])
+        correct_classifications = 0
+        labels = self.testing_data["labels"]
+        # print("Testing data dimensions=",np.array(self.testing_data["data"]))
+        predictions = self.model.predict(np.array(self.testing_data["data"]))
+        max_inds = np.argmax(predictions, axis=1)
+        max_prob = np.amax(predictions, axis=1)
+
+        for i in range(no_of_images):
+            if max_prob[i] > 0.5 and self.classes[max_inds[i]] == labels[i]:
+                correct_classifications += 1
+
+        self.testing_accuracy = correct_classifications / no_of_images
+        print("Testing accuracy is", self.testing_accuracy)
+
+    def save_model(self, save_to_path):
         '''
         This method saves the trained model to the path specified in the parameter save_to_path
         This parameter should be specified by the config file.
@@ -293,12 +358,14 @@ class TempleNNTrainer():
         OUPTUT: None (The model is saved to the specified path(in database or locally))
         '''
         try:
-            #Make the necessary directories in the path if it doesnt exist
+            save_to_path = os.path.join(save_to_path, self.temple_id)
+            # Make the necessary directories in the path if it doesnt exist
             if not os.path.isdir(save_to_path):
                 os.makedirs(save_to_path)
 
-            model_arch_path=os.path.join(save_to_path,"model_architecture.json")
-            model_weights_path=os.path.join(save_to_path, "model_weights.h5")
+            model_arch_path = os.path.join(save_to_path, "model_architecture.json")
+            model_weights_path = os.path.join(save_to_path, "model_weights.h5")
+            model_extra_info_path = os.path.join(save_to_path, "extra_info.json")
 
             # serialize model to JSON
             model_json = self.model.to_json()
@@ -306,9 +373,15 @@ class TempleNNTrainer():
                 json_file.write(model_json)
             # serialize weights to HDF5
             self.model.save_weights(model_weights_path)
+            # serialize extra info to json
+            extra_info = {}
+            extra_info["class labels"] = self.classes
+            extra_info["resized image shape"] = self.resized_image_shape
+            with open(model_extra_info_path, 'w') as extra_info_file:
+                json.dump(extra_info, extra_info_file, indent=4)
 
-            #Log the saving of the model
-            self.logger("Model saved in "+save_to_path)
+            # Log the saving of the model
+            self.logger("Model saved in " + save_to_path)
 
         except:
             error_traceback = traceback.format_exc()
@@ -324,13 +397,10 @@ class TempleNNTrainer():
         '''
         pass
 
-    def logger(self,message):
-        with open(self.log_file_path,'w') as log_file:
+    def logger(self, message):
+        with open(self.log_file_path, 'a') as log_file:
             log_file.write(message)
             log_file.write("\n")
-
-
-
 
 
 class TempleImagesPredictor():
@@ -350,12 +420,65 @@ class TempleImagesPredictor():
         !!Any information that will be required to get info from the database will also be present
 
         '''
-        self.models={}
-        self.min_confidence=0.5
+        # self.query_file_path=query_file_path
+        self.path_to_models = None
+        self.input = None
+        self.temple_id = None
+
+        self.predicted_classes = None
+        self.models = {}
+        self.min_confidence = 0.5
+
+        self.log_file_path = "E:\\PS1 SMARTi electronics\\Programs and Data\\FlaskTest1\\log_file.txt"
+
+        self.current_model = None
+        self.resized_image_shape = None
+        self.class_labels = None
+
+        # self.parse_query_file()
+
+        self.logger("---------------------------------------------------------------------")
 
         pass
 
-    def load_model(self,nn_id):
+    def get_model(self, nn_id):
+        # Path of the model to get
+        get_model_path = os.path.join(self.path_to_models, str(nn_id))
+
+        model_arch_path = os.path.join(get_model_path, "model_architecture.json")
+        model_weights_path = os.path.join(get_model_path, "model_weights.h5")
+        model_extra_info_path = os.path.join(get_model_path, "extra_info.json")
+
+        # Making the model from files
+        # Getting model architecture
+        with open(model_arch_path, 'r') as json_file:
+            loaded_model_json = json_file.read()
+        model = model_from_json(loaded_model_json)
+
+        # Getting model weights
+        model.load_weights(model_weights_path)
+
+        # Getting extra info
+        # Opening and reading contents of file as json
+        with open(model_extra_info_path, 'r') as extra_info_file:
+            extra_info_json = json.load(extra_info_file)
+
+        # Now we have the json file. We'll set the attributes accordingly
+        model_class_labels = extra_info_json["class labels"]
+        model_resized_image_shape = tuple(extra_info_json["resized image shape"])
+
+        # Compiling model to make it usable
+        opt = Adam(lr=1e-3,
+                   decay=1e-3 / 50)  # Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])
+        model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+
+        # Adding the compiled model and extra info to models
+        self.models[nn_id] = {}
+        self.models[nn_id]["model"] = model
+        self.models[nn_id]["class_labels"] = model_class_labels
+        self.models[nn_id]["resized_image_shape"] = model_resized_image_shape
+
+    def load_model(self, nn_id):
         '''
         Using the nn_id, this function loads the model (present in self.models) as the current_model.
         The other attributes such as resized_image_size, labels etc will be reset to match the
@@ -364,11 +487,16 @@ class TempleImagesPredictor():
         :return:
         '''
         try:
-            #Loading the model first
-            self.current_model=self.models[nn_id]["model"]
+            # If nn_id not there in models, get it
+            if nn_id not in self.models:
+                self.get_model(nn_id)
 
-            self.resized_image_shape=self.models[nn_id]["resized_image_shape"]
-            self.class_labels=self.models[nn_id]["class_labels"]
+            # Loading the model first
+            self.current_model = self.models[nn_id]["model"]
+
+            self.resized_image_shape = self.models[nn_id]["resized_image_shape"]
+            self.class_labels = self.models[nn_id]["class_labels"]
+            self.temple_id = nn_id
 
         except:
             error_traceback = traceback.format_exc()
@@ -382,17 +510,17 @@ class TempleImagesPredictor():
         '''
         try:
             # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
-            processed_image=(np.array(cv2.resize(image, tuple([self.resized_image_shape[1],
-                                                               self.resized_image_shape[0]]))) / 255.0)
+            processed_image = (np.array(cv2.resize(image, tuple([self.resized_image_shape[1],
+                                                                 self.resized_image_shape[0]]))) / 255.0)
 
-            return(processed_image)
+            return (processed_image)
 
         except:
             error_traceback = traceback.format_exc()
             self.logger(error_traceback)
-            return(None)
+            return (None)
 
-    def get_label(self,prediction,labels):
+    def get_label(self, prediction, labels):
         '''
         Given a prediction score list and labels, return the category that the image belongs to/Anomaly
         :param prediction: List of prediction scores (last layer output of model)
@@ -400,23 +528,23 @@ class TempleImagesPredictor():
         :return: Label of the image / Anomaly
         '''
         try:
-            #Flatten the prediction list and find the index of the maximum element
-            #Check if it is greater than a threshold, and give output accordingly
+            # Flatten the prediction list and find the index of the maximum element
+            # Check if it is greater than a threshold, and give output accordingly
             prediction = np.array(prediction).flatten()
             max_prediction_ind = np.argmax(prediction)
             # print("max_prediction_ind is",max_prediction_ind)
             max_prediction = prediction[max_prediction_ind]
-            if max_prediction<self.min_confidence:
-                return("No category (Anomaly)")
+            if max_prediction < self.min_confidence:
+                return ("No category (Anomaly)")
             else:
-                return(labels[max_prediction_ind])
+                return (labels[max_prediction_ind])
 
         except:
             error_traceback = traceback.format_exc()
             self.logger(error_traceback)
-            return(None)
+            return (None)
 
-    def predict(self,input,model,labels):
+    def predict(self):
         '''
         This method uses the model provided and the labels (in a specific format) to transform the input to an output
         Optionally, the prediction scores could also be outputted.
@@ -429,23 +557,80 @@ class TempleImagesPredictor():
         :return: give appropriate label to the image/data, with its prediction score
         '''
         try:
-            no_of_images=len(input)
-            classes=[]
-            #Apply model to each input and get the classes using the get_label() function
-            predictions=model.predict(input)
+            response = {"image_class": [], "class_confidence": [], "error_msg": "All OK"}
+            nn_id = self.temple_id
+            input = self.input
+            try:
+                self.load_model(nn_id)
+            except:
+                response["error_msg"] = "Model does not exist/ Error in loading model"
+                error_traceback = traceback.format_exc()
+                self.logger(error_traceback)
+                return (response)
+
+            if self.current_model == None:
+                response["error_msg"] = "Model does not exist/ Error in loading model"
+                return (response)
+
+            model = self.current_model
+            labels = self.class_labels
+            no_of_images = len(input)
+
+            # Preprocessing all images
+            input = np.array([self.preprocess_image(image) for image in input])
+
+            # Apply model to each input and get the classes using the get_label() function
+            predictions = model.predict(input)
             for prediction in predictions:
-                classes.append(self.get_label(prediction,labels))
+                response["image_class"].append(self.get_label(prediction, labels))
+                response["class_confidence"].append(np.amax(prediction))
 
-            return(classes)
+            print("response sent is", response)
+            return (response)
 
-        except:
-            error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
-            return(None)
-
-
+        except Exception as error:
+            # error_traceback = traceback.format_exc()
+            self.logger("error found in function - {}".format(error))
+            return (None)
 
         pass
+
+    def parse_query_file(self, query_file_path):
+        # Opening query file and reading contents
+        with open(query_file_path, 'r') as query_file:
+            query_json = json.load(query_file)
+
+        self.path_to_models = query_json["path to models"]
+        query_images_folder = query_json["query images"]
+        self.temple_id = query_json["temple id"]
+        self.log_file_path = query_json["log file path"]
+
+        imagePaths = list(paths.list_images(query_images_folder))
+
+        # Creating the data numpy array using the paths
+        data = []
+        for imagePath in imagePaths:
+            image = cv2.imread(imagePath)
+            data.append(image)
+
+        self.input = data
+
+    def set_attributes(self, path_to_models):
+        self.path_to_models = path_to_models
+
+    def parse_query_json(self, query):
+        self.temple_id = query["temple id"]
+        imgdata = base64.b64decode(query["image"])
+        filetype_str = query["image type"].strip('.')
+        filename = 'query_image' + '.' + filetype_str
+        with open(filename, 'wb') as f:
+            f.write(imgdata)
+
+        image = cv2.imread(filename)
+        data = []
+        data.append(image)
+
+        self.input = data
 
     def check_database_for_queries(self):
         '''
@@ -458,7 +643,7 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def traverse_queries(self,queries):
+    def traverse_queries(self, queries):
         '''
         This method goes through all the queries one by one. It performs the prediction process for all query images
         Sub Tasks:
@@ -487,7 +672,7 @@ class TempleImagesPredictor():
     #     '''
     #     pass
 
-    def update_database_queries(self,queries_to_update):
+    def update_database_queries(self, queries_to_update):
         '''
         This method will edit the query records (corresponding to queries that have been processed)
         to state that they have been processed. Then the next run of check_database_for_queries will
@@ -498,7 +683,7 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def ensure_model_present(self,nn_id):
+    def ensure_model_present(self, nn_id):
         '''
         Given the neural network id, this method ensures that it is present in the memory. This can then be used
         for predictions. If the model is not present, then it will get the model from the database, or return an error
@@ -509,7 +694,7 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def logger(self,message):
-        with open(self.log_file_path,'w') as log_file:
+    def logger(self, message):
+        with open(self.log_file_path, 'a') as log_file:
             log_file.write(message)
             log_file.write("\n")

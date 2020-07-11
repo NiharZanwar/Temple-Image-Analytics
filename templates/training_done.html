@@ -6,10 +6,10 @@
 </head>
 <body>
         <table border = 1>
-         {% for key, value in form.items() %}
+         {% for attr in ["testing_accuracy"] %}
             <tr>
-               <th> {{ key }} </th>
-               <td> {{ value }} </td>
+               <th> {{ attr }} </th>
+               <td> {{ trainer.testing_accuracy }} </td>
             </tr>
          {% endfor %}
       </table>
