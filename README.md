@@ -1,4 +1,4 @@
-(Currently files are being added to new_branch. No work is being done on master
+(Currently files are being added to new_branch. No work is being done on master)
 # Temple-Image-Analytics
 Train a Convolutional Network to Categorise Images and find anomalies
 
