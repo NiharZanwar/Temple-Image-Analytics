@@ -1,9 +1,10 @@
-from flask import Flask,render_template,request,abort
+from flask import Flask,render_template,request,abort,Response
 import TempleImagesNN
 import json
 import os
 import sys
 import base64
+import traceback
 
 app = Flask(__name__)
 
@@ -41,25 +42,35 @@ def prediction():
 
 @app.route('/api/save_data',methods=['POST'])
 def add_data():
-    global config
-    if (request.method=='POST'):
-        request_json=request.get_json()
-        temple_id = str(request_json["temple_id"])
-        train_test=str(request_json["train_test"])
-        category=str(request_json["category"])
+    response={"error_msg":"All OK"}
+    try:
+        global config
+        if (request.method=='POST'):
+            request_json=request.get_json()
+            temple_id = str(request_json["temple_id"])
+            train_test=str(request_json["train_test"])
+            category=str(request_json["category"])
 
-        imgdata = base64.b64decode(request_json["image"])
-        filetype_str = request_json["image_type"].strip('.')
-        image_name=str(request_json["image_name"])
-        filename = image_name + '.' + filetype_str
+            imgdata = base64.b64decode(request_json["image"])
+            filetype_str = request_json["image_type"].strip('.')
+            image_name=str(request_json["image_name"])
+            filename = image_name + '.' + filetype_str
 
-        base=config["training_data_path"] if train_test.lower()=="train" else config["testing_data_path"]
-        wd = os.path.join(base, temple_id, category)
-        os.makedirs(wd)
-        filepath=os.path.join(wd,filename)
+            base=config["training_data_path"] if train_test.lower()=="train" else config["testing_data_path"]
+            wd = os.path.join(base, temple_id, category)
+            os.makedirs(wd)
+            filepath=os.path.join(wd,filename)
 
-        with open(filepath, 'wb') as f:
-            f.write(imgdata)
+            with open(filepath, 'wb') as f:
+                f.write(imgdata)
+
+        return(Response(response=response,status=200))
+    except Exception as e:
+        #error_traceback=traceback
+        response["error_msg"]=str(e)
+        return(Response(response=response,status=500))
+
+
 
     pass
 
@@ -78,13 +89,12 @@ def train_model():
 
 
 
-
-
 @app.route('/api/predict',methods=['GET','POST'])
 def predict_json_request():
+    global config
     if(request.method=='POST'):
         predictor=TempleImagesNN.TempleImagesPredictor()
-        predictor.set_attributes(path_to_models="E:\\PS1 SMARTi electronics\\Programs and Data\\FlaskTest1")
+        predictor.set_paths(path_to_models=config["models_path"],log_path=config["logs_path"])
         predictor.parse_query_json(request.get_json())
         response=predictor.predict()
         if response["error_msg"]!="All OK":

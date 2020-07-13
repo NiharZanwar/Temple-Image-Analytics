@@ -452,7 +452,8 @@ class TempleImagesPredictor():
         self.models = {}
         self.min_confidence = 0.5
 
-        self.log_file_path = "E:\\PS1 SMARTi electronics\\Programs and Data\\FlaskTest1\\log_file.txt"
+        self.error_log_file_path = None
+        self.status_log_file_path=None
 
         self.current_model = None
         self.resized_image_shape = None
@@ -460,7 +461,7 @@ class TempleImagesPredictor():
 
         # self.parse_query_file()
 
-        self.logger("---------------------------------------------------------------------")
+        #self.logger("---------------------------------------------------------------------")
 
         pass
 
@@ -612,8 +613,8 @@ class TempleImagesPredictor():
             return (response)
 
         except Exception as error:
-            # error_traceback = traceback.format_exc()
-            self.logger("error found in function - {}".format(error))
+            error_traceback = traceback.format_exc()
+            self.logger(error_traceback)
             return (None)
 
         pass
@@ -638,8 +639,11 @@ class TempleImagesPredictor():
 
         self.input = data
 
-    def set_attributes(self, path_to_models):
+    def set_paths(self, path_to_models, log_path):
+
         self.path_to_models = path_to_models
+        self.error_log_file_path=os.path.join(log_path,"error_log.txt")
+        self.status_log_file_path=os.path.join(log_path,"log.txt")
 
     def parse_query_json(self, query):
         self.temple_id = query["temple id"]
@@ -717,7 +721,16 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def logger(self, message):
-        with open(self.log_file_path, 'a') as log_file:
+    def error_logger(self, message):
+        with open(self.error_log_file_path, 'a') as log_file:
+            log_file.write("[Error Log at "+str(datetime.datetime)+" ]")
+            log_file.write("\n")
+            log_file.write(message)
+            log_file.write("\n")
+
+    def status_logger(self,message):
+        with open(self.status_log_file_path, 'a') as log_file:
+            log_file.write("[Status Log at "+str(datetime.datetime)+" ]")
+            log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
