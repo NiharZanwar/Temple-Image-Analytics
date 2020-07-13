@@ -3,6 +3,7 @@ import TempleImagesNN
 import json
 import os
 import sys
+import base64
 
 app = Flask(__name__)
 
@@ -38,6 +39,47 @@ def prediction():
         return render_template('prediction_done.html',classes=response)
 
 
+@app.route('/api/save_data',methods=['POST'])
+def add_data():
+    global config
+    if (request.method=='POST'):
+        request_json=request.get_json()
+        temple_id = str(request_json["temple_id"])
+        train_test=str(request_json["train_test"])
+        category=str(request_json["category"])
+
+        imgdata = base64.b64decode(request_json["image"])
+        filetype_str = request_json["image_type"].strip('.')
+        image_name=str(request_json["image_name"])
+        filename = image_name + '.' + filetype_str
+
+        base=config["training_data_path"] if train_test.lower()=="train" else config["testing_data_path"]
+        wd = os.path.join(base, temple_id, category)
+        os.makedirs(wd)
+        filepath=os.path.join(wd,filename)
+
+        with open(filepath, 'wb') as f:
+            f.write(imgdata)
+
+    pass
+
+@app.route('/api/make_model',methods=['POST'])
+def train_model():
+    global config
+    if (request.method == 'POST'):
+        request_json=request.get_json()
+        trainer=TempleImagesNN.TempleNNTrainer()
+        trainer.set_paths(temple_id=request_json["temple_id"],
+                          model_path=config["models_path"],
+                          training_data_path=config["training_data_path"],
+                          testing_data_path=config["testing_data_path"],
+                          log_path=config["logs_path"])
+        trainer.start_training()
+
+
+
+
+
 @app.route('/api/predict',methods=['GET','POST'])
 def predict_json_request():
     if(request.method=='POST'):
@@ -65,7 +107,19 @@ def parse_config_json(config_file_path):
     config["models_path"]=config_json["models_path"]
     config["logs_path"]=config_json["logs_path"]
 
+def check_directories():
+    global config
+
+    check=True
+    for paths in config:
+        if not os.path.isdir(config[paths]):
+            check=False
+            break
+
+    return(check)
+
 if __name__=='__main__':
+
     path_to_config=""
     #Check if config file exists in specified path
     if not os.path.isfile(path_to_config):
@@ -75,8 +129,10 @@ if __name__=='__main__':
     else:
         parse_config_json(path_to_config)
 
-
-
-
+    #Checking for presence of directories
+    check=check_directories()
+    if check==False:
+        print("All directories not present. Exiting")
+        sys.exit()
 
     app.run(debug=True)

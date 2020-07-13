@@ -28,7 +28,7 @@ import datetime
 
 class TempleNNTrainer():
 
-    def __init__(self, config_file_path):
+    def __init__(self):
         '''
         Creates an object of the TempleNNTrainer. Calls get_config to get info and set class variables.
         Then, based on the class attributes, will perform other functions. Option to perform training
@@ -67,7 +67,7 @@ class TempleNNTrainer():
         '''
         # Initialising all attributes
 
-        self.config_file_path = config_file_path
+        #self.config_file_path = config_file_path
         self.error_log_file_path = None
         self.status_log_file_path=None
         self.training_data_path = None
