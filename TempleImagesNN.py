@@ -23,6 +23,7 @@ import os
 import json
 import traceback
 import base64
+import datetime
 
 
 class TempleNNTrainer():
@@ -67,7 +68,8 @@ class TempleNNTrainer():
         # Initialising all attributes
 
         self.config_file_path = config_file_path
-        self.log_file_path = None
+        self.error_log_file_path = None
+        self.status_log_file_path=None
         self.training_data_path = None
         self.testing_data_path = None
         self.save_model_path = None
@@ -83,11 +85,25 @@ class TempleNNTrainer():
         self.testing_data = {}
         self.testing_accuracy = 0
 
-        # Calling get_config() to get config file and set up the attributes
-        self.get_config(config_file_path)
+        # # Calling get_config() to get config file and set up the attributes
+        # self.get_config(config_file_path)
+        #
+        # self.logger("--------------------------------------------------------------------------------------------")
 
-        self.logger("--------------------------------------------------------------------------------------------")
+        pass
 
+    def set_paths(self, temple_id, model_path, training_data_path, testing_data_path, log_path):
+        # Setting paths based on temple_id
+        self.save_model_path = os.path.join(model_path, str(temple_id))
+        self.training_data_path = os.path.join(training_data_path, str(temple_id))
+        self.testing_data_path = os.path.join(testing_data_path, str(temple_id))
+
+        self.error_log_file_path = os.path.join(log_path, "error_log.txt")
+        self.status_log_file_path = os.path.join(log_path, "log.txt")
+
+        self.temple_id = temple_id
+
+    def start_training(self):
         # Now getting training data from the database in order to train the model
         self.get_training_data()
 
@@ -105,8 +121,6 @@ class TempleNNTrainer():
 
         # Save the model in the path specified
         self.save_model(self.save_model_path)
-
-        pass
 
     def check_for_trained_model(self):
         '''
@@ -397,8 +411,17 @@ class TempleNNTrainer():
         '''
         pass
 
-    def logger(self, message):
-        with open(self.log_file_path, 'a') as log_file:
+    def error_logger(self, message):
+        with open(self.error_log_file_path, 'a') as log_file:
+            log_file.write("[Error Log at "+str(datetime.datetime)+" ]")
+            log_file.write("\n")
+            log_file.write(message)
+            log_file.write("\n")
+
+    def status_logger(self,message):
+        with open(self.status_log_file_path, 'a') as log_file:
+            log_file.write("[Status Log at "+str(datetime.datetime)+" ]")
+            log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
 
