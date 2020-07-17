@@ -88,7 +88,7 @@ class TempleNNTrainer():
         # # Calling get_config() to get config file and set up the attributes
         # self.get_config(config_file_path)
         #
-        # self.logger("--------------------------------------------------------------------------------------------")
+        # self.error_logger("--------------------------------------------------------------------------------------------")
 
         pass
 
@@ -103,9 +103,13 @@ class TempleNNTrainer():
 
         self.temple_id = temple_id
 
+        self.status_logger("Paths to directories set")
+
     def start_training(self):
         # Now getting training data from the database in order to train the model
         self.get_training_data()
+
+        self.status_logger("Training data has been loaded")
 
         # Creating the architecture of the model
         self.create_model_architecture()
@@ -113,12 +117,17 @@ class TempleNNTrainer():
         # Training the model
         self.train_model()
 
+        self.status_logger("Model has been trained")
+
         # Getting testing data
         self.get_testing_data()
+
+        self.status_logger("Testing data is loaded")
 
         # Testing model
         self.test_model()
 
+        self.status_logger("Model has been tested. Testing accuracy is "+str(self.testing_accuracy))
         # Save the model in the path specified
         self.save_model(self.save_model_path)
 
@@ -161,7 +170,7 @@ class TempleNNTrainer():
         ##Catching all errors as tracebacks are logged
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
 
         pass
 
@@ -186,7 +195,7 @@ class TempleNNTrainer():
         ##Catching all errors as tracebacks are logged
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
             return (None)
 
         else:
@@ -237,7 +246,7 @@ class TempleNNTrainer():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
 
         pass
 
@@ -279,7 +288,7 @@ class TempleNNTrainer():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
         pass
 
     def train_model(self):
@@ -318,7 +327,7 @@ class TempleNNTrainer():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
         pass
 
     def get_testing_data(self):
@@ -372,7 +381,7 @@ class TempleNNTrainer():
         OUPTUT: None (The model is saved to the specified path(in database or locally))
         '''
         try:
-            save_to_path = os.path.join(save_to_path, self.temple_id)
+            #save_to_path = os.path.join(save_to_path, self.temple_id)
             # Make the necessary directories in the path if it doesnt exist
             if not os.path.isdir(save_to_path):
                 os.makedirs(save_to_path)
@@ -395,11 +404,11 @@ class TempleNNTrainer():
                 json.dump(extra_info, extra_info_file, indent=4)
 
             # Log the saving of the model
-            self.logger("Model saved in " + save_to_path)
+            self.status_logger("Model saved in " + save_to_path)
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
 
         pass
 
@@ -413,14 +422,14 @@ class TempleNNTrainer():
 
     def error_logger(self, message):
         with open(self.error_log_file_path, 'a') as log_file:
-            log_file.write("[Error Log at "+str(datetime.datetime)+" ]")
+            log_file.write("[Error Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
 
     def status_logger(self,message):
         with open(self.status_log_file_path, 'a') as log_file:
-            log_file.write("[Status Log at "+str(datetime.datetime)+" ]")
+            log_file.write("[Status Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
@@ -461,7 +470,7 @@ class TempleImagesPredictor():
 
         # self.parse_query_file()
 
-        #self.logger("---------------------------------------------------------------------")
+        #self.error_logger("---------------------------------------------------------------------")
 
         pass
 
@@ -524,7 +533,7 @@ class TempleImagesPredictor():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
 
     def preprocess_image(self, image):
         '''
@@ -541,7 +550,7 @@ class TempleImagesPredictor():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
             return (None)
 
     def get_label(self, prediction, labels):
@@ -565,7 +574,7 @@ class TempleImagesPredictor():
 
         except:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
             return (None)
 
     def predict(self):
@@ -589,7 +598,7 @@ class TempleImagesPredictor():
             except:
                 response["error_msg"] = "Model does not exist/ Error in loading model"
                 error_traceback = traceback.format_exc()
-                self.logger(error_traceback)
+                self.error_logger(error_traceback)
                 return (response)
 
             if self.current_model == None:
@@ -614,7 +623,7 @@ class TempleImagesPredictor():
 
         except Exception as error:
             error_traceback = traceback.format_exc()
-            self.logger(error_traceback)
+            self.error_logger(error_traceback)
             return (None)
 
         pass
@@ -723,14 +732,14 @@ class TempleImagesPredictor():
 
     def error_logger(self, message):
         with open(self.error_log_file_path, 'a') as log_file:
-            log_file.write("[Error Log at "+str(datetime.datetime)+" ]")
+            log_file.write("[Error Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
 
     def status_logger(self,message):
         with open(self.status_log_file_path, 'a') as log_file:
-            log_file.write("[Status Log at "+str(datetime.datetime)+" ]")
+            log_file.write("[Status Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")

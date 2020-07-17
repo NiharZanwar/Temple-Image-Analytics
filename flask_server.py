@@ -58,7 +58,8 @@ def add_data():
 
             base=config["training_data_path"] if train_test.lower()=="train" else config["testing_data_path"]
             wd = os.path.join(base, temple_id, category)
-            os.makedirs(wd)
+            if(not os.path.isdir(wd)):
+                os.makedirs(wd)
             filepath=os.path.join(wd,filename)
 
             with open(filepath, 'wb') as f:
@@ -66,7 +67,8 @@ def add_data():
 
         return(Response(response=response,status=200))
     except Exception as e:
-        #error_traceback=traceback
+        error_traceback=traceback.format_exc()
+        print(error_traceback)
         response["error_msg"]=str(e)
         return(Response(response=response,status=500))
 
@@ -130,7 +132,7 @@ def check_directories():
 
 if __name__=='__main__':
 
-    path_to_config=""
+    path_to_config="E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\config\\config.txt"
     #Check if config file exists in specified path
     if not os.path.isfile(path_to_config):
         print("Config file doesnt exist. Exiting")

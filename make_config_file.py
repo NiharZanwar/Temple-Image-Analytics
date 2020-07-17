@@ -1,18 +1,19 @@
 import json
+import os
 
 
 create_config_file=True
-create_query_file=True
+create_query_file=False
 
 if create_config_file==True:
     data={}
-    data["training data path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\Temple Original Images\\411010\\Training data"
+    data["training_data_path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\training data"
     #data["hyperparameters"]={}
-    data["log file path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\FlaskTest1\\log_file.txt"
-    data["testing data path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\CNN_Categorisation_test9"
-    data["save model path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\FlaskTest1"
-    data["temple id"]="410010"
+    data["logs_path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\logs"
+    data["testing_data_path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\testing data"
+    data["models_path"]="E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\models"
 
+    os.chdir("E:\\PS1 SMARTi electronics\\Programs and Data\\DockerDirectoryStructure\\config")
     with open('config.txt', 'w') as outfile:
         json.dump(data, outfile,indent=4)
 
