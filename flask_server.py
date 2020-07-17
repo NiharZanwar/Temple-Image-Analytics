@@ -80,7 +80,7 @@ def add_data():
 def train_model():
     global config
     if (request.method == 'POST'):
-        response={"error_msg":"All OK",
+        response={"error_msg":["All OK"],
                   "got_training_data_flag" : False,
         "made_model_architecture_flag" : False,
         "trained_model_flag" : False,
@@ -102,7 +102,7 @@ def train_model():
             return(Response(response=json.dumps(response),status=400))
 
         trainer.start_training()
-        response["error_msg"]=str(trainer.last_error)
+        response["error_msg"]=[str(error) for error in trainer.last_error]
         response["got_training_data_flag"]=trainer.got_training_data_flag
         response["made_model_architecture_flag"]=trainer.made_model_architecture_flag
         response["trained_model_flag"]=trainer.trained_model_flag

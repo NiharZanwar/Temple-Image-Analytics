@@ -94,7 +94,7 @@ class TempleNNTrainer():
         self.tested_model_flag=False
         self.saved_model_flag=False
 
-        self.last_error=None
+        self.last_error=[]
 
         # # Calling get_config() to get config file and set up the attributes
         # self.get_config(config_file_path)
@@ -188,9 +188,8 @@ class TempleNNTrainer():
 
         ##Catching all errors as tracebacks are logged
         except Exception as e:
-            self.last_error=e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
         pass
 
@@ -201,6 +200,9 @@ class TempleNNTrainer():
         :return:
         '''
         try:
+            #print(image is not None)
+            assert image is not None,"Image is None"
+
             # First check if the resized_image_shape attribute is set. If not, set it using the scale
             if not self.resized_image_shape:
                 length = image.shape[0] * self.image_scale_factor
@@ -208,15 +210,16 @@ class TempleNNTrainer():
                 new_shape = tuple([int(length), int(width), 3])
                 self.resized_image_shape = new_shape
 
+            assert image.shape[2]==self.resized_image_shape[2],"All images do not have the same number of channels"
+
             # Using scale to scale (down) image and get values from 0 - 255 to 0 - 1
             processed_image = (np.array(cv2.resize(image, tuple([self.resized_image_shape[1],
                                                                  self.resized_image_shape[0]]))) / 255.0)
 
         ##Catching all errors as tracebacks are logged
         except Exception as e:
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
             return (None)
 
         else:
@@ -236,8 +239,11 @@ class TempleNNTrainer():
         try:
             # Getting the classes to categorise in
             current_working_directory = os.getcwd()
+            assert os.path.isdir(self.training_data_path),"Training data path is invalid"
+            assert os.path.isdir(self.common_training_data_path), "Common Training data path is invalid"
             imagePaths = list(paths.list_images(self.training_data_path))
             imagePaths.extend(list(paths.list_images(self.common_training_data_path)))
+            assert len(imagePaths)>0,"No images in training data folder"
             os.chdir(self.training_data_path)
             self.classes = os.listdir()
             os.chdir(self.common_training_data_path)
@@ -245,6 +251,8 @@ class TempleNNTrainer():
             self.classes.extend(os.listdir())
             print("classes are",self.classes)
             os.chdir(current_working_directory)
+
+            assert len(self.classes)>=2,"There have to be atleast 2 classes"
 
             data = []
             labels = []
@@ -259,6 +267,9 @@ class TempleNNTrainer():
                 labels.append(label)
 
             # encode the labels, converting them from strings to integers
+            length_unique=len(np.unique(np.array(labels)))
+            assert length_unique==len(self.classes),\
+                "No images in some categories" if length_unique<len(self.classes) else "Inconsistent class names(Note:Case sensitive)"
             lb = LabelBinarizer()
             labels = lb.fit_transform(labels)
             # When no. of classes is 2, then Label Binariser doesnt behave as we want it to
@@ -273,9 +284,8 @@ class TempleNNTrainer():
 
         except Exception as e:
 
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
         pass
 
@@ -289,6 +299,7 @@ class TempleNNTrainer():
         OUTPUT: None (A class attribute called model will be set by the method)
         '''
         try:
+            assert self.resized_image_shape!=None,"Resized image shape is None!! Cannot make model architecture"
             dropout_prob = 0.5
             # define our Convolutional Neural Network architecture
             self.model = Sequential()
@@ -317,10 +328,8 @@ class TempleNNTrainer():
 
 
         except Exception as e:
-
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
         pass
 
     def train_model(self):
@@ -341,6 +350,9 @@ class TempleNNTrainer():
             data = self.training_data["data"]
             labels = self.training_data["labels"]
 
+            assert len(data)>0,"No training data provided"
+            assert len(labels)==len(data),"Inconsistent lengths of labels and data"
+
             # print("Training data is",data)
             # print("Training labels are",labels)
             (trainX, testX, trainY, testY) = train_test_split(np.array(data), np.array(labels), test_size=0.25)
@@ -360,14 +372,17 @@ class TempleNNTrainer():
 
         except Exception as e:
 
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
         pass
 
     def get_testing_data(self):
         try:
+            assert os.path.isdir(self.testing_data_path),"Testing data path is invalid"
+
             imagePaths = list(paths.list_images(self.testing_data_path))
+
+            assert len(imagePaths)>0,"No images given for testing"
             print("Testing image paths are", imagePaths)
 
             data = []
@@ -387,9 +402,8 @@ class TempleNNTrainer():
             self.testing_data["labels"] = labels
 
         except Exception as e:
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
         # print("Testing data is",self.testing_data["data"])
         # print("Testing labels is",self.testing_data["labels"])
@@ -397,10 +411,15 @@ class TempleNNTrainer():
     def test_model(self):
         try:
             no_of_images = len(self.testing_data["data"])
+            assert no_of_images>0,"No images for testing"
             correct_classifications = 0
             labels = self.testing_data["labels"]
+            data=self.testing_data["data"]
+            
+            assert len(labels)==len(data),"Inconsistent length of images and labels in training data"
+            
             # print("Testing data dimensions=",np.array(self.testing_data["data"]))
-            predictions = self.model.predict(np.array(self.testing_data["data"]))
+            predictions = self.model.predict(np.array(data))
             max_inds = np.argmax(predictions, axis=1)
             max_prob = np.amax(predictions, axis=1)
 
@@ -410,10 +429,10 @@ class TempleNNTrainer():
 
             self.testing_accuracy = correct_classifications / no_of_images
             print("Testing accuracy is", self.testing_accuracy)
+
         except Exception as e:
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
 
     def save_model(self, save_to_path):
@@ -438,6 +457,7 @@ class TempleNNTrainer():
             model_extra_info_path = os.path.join(save_to_path, "extra_info.json")
 
             # serialize model to JSON
+            assert self.model!=None,"The model is None. Cannot jsonify"
             model_json = self.model.to_json()
             with open(model_arch_path, "w") as json_file:
                 json_file.write(model_json)
@@ -456,9 +476,8 @@ class TempleNNTrainer():
 
         except Exception as e:
 
-            self.last_error = e
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
         pass
 
@@ -470,7 +489,8 @@ class TempleNNTrainer():
         '''
         pass
 
-    def error_logger(self, message):
+    def error_logger(self, message,error):
+        self.last_error.append(error)
         with open(self.error_log_file_path, 'a') as log_file:
             log_file.write("[Error Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
@@ -581,9 +601,9 @@ class TempleImagesPredictor():
             self.class_labels = self.models[nn_id]["class_labels"]
             self.temple_id = nn_id
 
-        except:
+        except Exception as e:
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
 
     def preprocess_image(self, image):
         '''
@@ -598,9 +618,9 @@ class TempleImagesPredictor():
 
             return (processed_image)
 
-        except:
+        except Exception as e:
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
             return (None)
 
     def get_label(self, prediction, labels):
@@ -622,9 +642,9 @@ class TempleImagesPredictor():
             else:
                 return (labels[max_prediction_ind])
 
-        except:
+        except Exception as e:
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
             return (None)
 
     def predict(self):
@@ -645,10 +665,10 @@ class TempleImagesPredictor():
             input = self.input
             try:
                 self.load_model(nn_id)
-            except:
+            except Exception as e:
                 response["error_msg"] = "Model does not exist/ Error in loading model"
                 error_traceback = traceback.format_exc()
-                self.error_logger(error_traceback)
+                self.error_logger(error_traceback,e)
                 return (response)
 
             if self.current_model == None:
@@ -671,9 +691,9 @@ class TempleImagesPredictor():
             print("response sent is", response)
             return (response)
 
-        except Exception as error:
+        except Exception as e:
             error_traceback = traceback.format_exc()
-            self.error_logger(error_traceback)
+            self.error_logger(error_traceback,e)
             return (None)
 
         pass
