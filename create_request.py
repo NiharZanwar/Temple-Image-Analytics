@@ -47,7 +47,7 @@ if request_make_model_flag:
     # print(str(base64.b64encode(f).decode('utf-8')))
     print("For make_model")
     print(response.status_code)
-    print(response.text)
+    print(response.json())
 
 
 

@@ -65,12 +65,12 @@ def add_data():
             with open(filepath, 'wb') as f:
                 f.write(imgdata)
 
-        return(Response(response=response,status=200))
+        return(Response(response=json.dumps(response),status=200))
     except Exception as e:
         error_traceback=traceback.format_exc()
         print(error_traceback)
         response["error_msg"]=str(e)
-        return(Response(response=response,status=500))
+        return(Response(response=json.dumps(response),status=500))
 
 
 
@@ -80,14 +80,40 @@ def add_data():
 def train_model():
     global config
     if (request.method == 'POST'):
-        request_json=request.get_json()
-        trainer=TempleImagesNN.TempleNNTrainer()
-        trainer.set_paths(temple_id=request_json["temple_id"],
-                          model_path=config["models_path"],
-                          training_data_path=config["training_data_path"],
-                          testing_data_path=config["testing_data_path"],
-                          log_path=config["logs_path"])
+        response={"error_msg":"All OK",
+                  "got_training_data_flag" : False,
+        "made_model_architecture_flag" : False,
+        "trained_model_flag" : False,
+        "got_testing_data_flag" : False,
+        "tested_model_flag" : False,
+        "saved_model_flag" : False
+        }
+        try:
+            request_json=request.get_json()
+            trainer=TempleImagesNN.TempleNNTrainer()
+            trainer.set_paths(temple_id=request_json["temple_id"],
+                              model_path=config["models_path"],
+                              training_data_path=config["training_data_path"],
+                              testing_data_path=config["testing_data_path"],
+                              log_path=config["logs_path"])
+
+        except Exception as e:
+            print("Exception occured",e)
+            return(Response(response=json.dumps(response),status=400))
+
         trainer.start_training()
+        response["error_msg"]=str(trainer.last_error)
+        response["got_training_data_flag"]=trainer.got_training_data_flag
+        response["made_model_architecture_flag"]=trainer.made_model_architecture_flag
+        response["trained_model_flag"]=trainer.trained_model_flag
+        response["got_testing_data_flag"]=trainer.got_testing_data_flag
+        response["tested_model_flag"]=trainer.tested_model_flag
+        response["saved_model_flag"]=trainer.saved_model_flag
+
+        return(Response(response=json.dumps(response),status=200 if response["error_msg"]==None else 500))
+
+
+
 
 
 

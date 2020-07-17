@@ -71,6 +71,7 @@ class TempleNNTrainer():
         self.error_log_file_path = None
         self.status_log_file_path=None
         self.training_data_path = None
+        self.common_training_data_path=None
         self.testing_data_path = None
         self.save_model_path = None
         self.temple_id = None
@@ -85,6 +86,16 @@ class TempleNNTrainer():
         self.testing_data = {}
         self.testing_accuracy = 0
 
+        #Flags for making appropriate response
+        self.got_training_data_flag=False
+        self.made_model_architecture_flag=False
+        self.trained_model_flag=False
+        self.got_testing_data_flag=False
+        self.tested_model_flag=False
+        self.saved_model_flag=False
+
+        self.last_error=None
+
         # # Calling get_config() to get config file and set up the attributes
         # self.get_config(config_file_path)
         #
@@ -96,6 +107,7 @@ class TempleNNTrainer():
         # Setting paths based on temple_id
         self.save_model_path = os.path.join(model_path, str(temple_id))
         self.training_data_path = os.path.join(training_data_path, str(temple_id))
+        self.common_training_data_path=os.path.join(training_data_path,"common")
         self.testing_data_path = os.path.join(testing_data_path, str(temple_id))
 
         self.error_log_file_path = os.path.join(log_path, "error_log.txt")
@@ -110,26 +122,33 @@ class TempleNNTrainer():
         self.get_training_data()
 
         self.status_logger("Training data has been loaded")
+        self.got_training_data_flag=True
 
         # Creating the architecture of the model
         self.create_model_architecture()
+        self.made_model_architecture_flag=True
 
         # Training the model
         self.train_model()
 
         self.status_logger("Model has been trained")
+        self.trained_model_flag=True
 
         # Getting testing data
         self.get_testing_data()
 
+
         self.status_logger("Testing data is loaded")
+        self.got_testing_data_flag = True
 
         # Testing model
         self.test_model()
 
         self.status_logger("Model has been tested. Testing accuracy is "+str(self.testing_accuracy))
+        self.tested_model_flag=True
         # Save the model in the path specified
         self.save_model(self.save_model_path)
+        self.saved_model_flag=True
 
     def check_for_trained_model(self):
         '''
@@ -168,7 +187,8 @@ class TempleNNTrainer():
             self.temple_id = config_json["temple id"]
 
         ##Catching all errors as tracebacks are logged
-        except:
+        except Exception as e:
+            self.last_error=e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
 
@@ -193,7 +213,8 @@ class TempleNNTrainer():
                                                                  self.resized_image_shape[0]]))) / 255.0)
 
         ##Catching all errors as tracebacks are logged
-        except:
+        except Exception as e:
+            self.last_error = e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
             return (None)
@@ -216,8 +237,13 @@ class TempleNNTrainer():
             # Getting the classes to categorise in
             current_working_directory = os.getcwd()
             imagePaths = list(paths.list_images(self.training_data_path))
+            imagePaths.extend(list(paths.list_images(self.common_training_data_path)))
             os.chdir(self.training_data_path)
             self.classes = os.listdir()
+            os.chdir(self.common_training_data_path)
+            print("Common classes are ",os.listdir())
+            self.classes.extend(os.listdir())
+            print("classes are",self.classes)
             os.chdir(current_working_directory)
 
             data = []
@@ -244,7 +270,10 @@ class TempleNNTrainer():
             self.training_data["data"] = data
             self.training_data["labels"] = labels
 
-        except:
+
+        except Exception as e:
+
+            self.last_error = e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
 
@@ -286,7 +315,10 @@ class TempleNNTrainer():
             self.model.add(Activation("softmax"))
 
 
-        except:
+
+        except Exception as e:
+
+            self.last_error = e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
         pass
@@ -325,49 +357,64 @@ class TempleNNTrainer():
             print(H)
 
 
-        except:
+
+        except Exception as e:
+
+            self.last_error = e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
         pass
 
     def get_testing_data(self):
-        imagePaths = list(paths.list_images(self.testing_data_path))
-        print("Testing image paths are", imagePaths)
+        try:
+            imagePaths = list(paths.list_images(self.testing_data_path))
+            print("Testing image paths are", imagePaths)
 
-        data = []
-        labels = []
-        # Traverse all the paths and load the preprocessed images
-        for imagePath in imagePaths:
-            image = cv2.imread(imagePath)
-            image = self.preprocess_image(image)
-            data.append(image)
+            data = []
+            labels = []
+            # Traverse all the paths and load the preprocessed images
+            for imagePath in imagePaths:
+                image = cv2.imread(imagePath)
+                image = self.preprocess_image(image)
+                data.append(image)
 
-            # extract the class label from the file path and update the labels list
-            label = imagePath.split(os.path.sep)[-2]
-            labels.append(label)
+                # extract the class label from the file path and update the labels list
+                label = imagePath.split(os.path.sep)[-2]
+                labels.append(label)
 
-        # Form the testing dataset using the data and labels
-        self.testing_data["data"] = data
-        self.testing_data["labels"] = labels
+            # Form the testing dataset using the data and labels
+            self.testing_data["data"] = data
+            self.testing_data["labels"] = labels
+
+        except Exception as e:
+            self.last_error = e
+            error_traceback = traceback.format_exc()
+            self.error_logger(error_traceback)
 
         # print("Testing data is",self.testing_data["data"])
         # print("Testing labels is",self.testing_data["labels"])
 
     def test_model(self):
-        no_of_images = len(self.testing_data["data"])
-        correct_classifications = 0
-        labels = self.testing_data["labels"]
-        # print("Testing data dimensions=",np.array(self.testing_data["data"]))
-        predictions = self.model.predict(np.array(self.testing_data["data"]))
-        max_inds = np.argmax(predictions, axis=1)
-        max_prob = np.amax(predictions, axis=1)
+        try:
+            no_of_images = len(self.testing_data["data"])
+            correct_classifications = 0
+            labels = self.testing_data["labels"]
+            # print("Testing data dimensions=",np.array(self.testing_data["data"]))
+            predictions = self.model.predict(np.array(self.testing_data["data"]))
+            max_inds = np.argmax(predictions, axis=1)
+            max_prob = np.amax(predictions, axis=1)
 
-        for i in range(no_of_images):
-            if max_prob[i] > 0.5 and self.classes[max_inds[i]] == labels[i]:
-                correct_classifications += 1
+            for i in range(no_of_images):
+                if max_prob[i] > 0.5 and self.classes[max_inds[i]] == labels[i]:
+                    correct_classifications += 1
 
-        self.testing_accuracy = correct_classifications / no_of_images
-        print("Testing accuracy is", self.testing_accuracy)
+            self.testing_accuracy = correct_classifications / no_of_images
+            print("Testing accuracy is", self.testing_accuracy)
+        except Exception as e:
+            self.last_error = e
+            error_traceback = traceback.format_exc()
+            self.error_logger(error_traceback)
+
 
     def save_model(self, save_to_path):
         '''
@@ -406,7 +453,10 @@ class TempleNNTrainer():
             # Log the saving of the model
             self.status_logger("Model saved in " + save_to_path)
 
-        except:
+
+        except Exception as e:
+
+            self.last_error = e
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback)
 
