@@ -85,6 +85,8 @@ class TempleNNTrainer():
         self.training_data = {}
         self.testing_data = {}
         self.testing_accuracy = 0
+        self.pretrained_model_exists=False
+        self.forceful=False
 
         #Flags for making appropriate response
         self.got_training_data_flag=False
@@ -93,6 +95,7 @@ class TempleNNTrainer():
         self.got_testing_data_flag=False
         self.tested_model_flag=False
         self.saved_model_flag=False
+
 
         self.last_error=[]
 
@@ -103,7 +106,7 @@ class TempleNNTrainer():
 
         pass
 
-    def set_paths(self, temple_id, model_path, training_data_path, testing_data_path, log_path):
+    def set_paths(self, temple_id, model_path, training_data_path, testing_data_path, log_path,forceful):
         # Setting paths based on temple_id
         self.save_model_path = os.path.join(model_path, str(temple_id))
         self.training_data_path = os.path.join(training_data_path, str(temple_id))
@@ -114,28 +117,41 @@ class TempleNNTrainer():
         self.status_log_file_path = os.path.join(log_path, "log.txt")
 
         self.temple_id = temple_id
+        self.forceful=forceful
 
         self.status_logger("Paths to directories set")
 
     def start_training(self):
         # Now getting training data from the database in order to train the model
+        self.check_for_trained_model()
+        if (len(self.last_error) > 0):
+            return
+
         self.get_training_data()
+        if (len(self.last_error) > 0):
+            return
 
         self.status_logger("Training data has been loaded")
         self.got_training_data_flag=True
 
         # Creating the architecture of the model
         self.create_model_architecture()
+        if (len(self.last_error) > 0):
+            return
         self.made_model_architecture_flag=True
 
         # Training the model
         self.train_model()
+        if (len(self.last_error) > 0):
+            return
 
         self.status_logger("Model has been trained")
         self.trained_model_flag=True
 
         # Getting testing data
         self.get_testing_data()
+        if (len(self.last_error) > 0):
+            return
 
 
         self.status_logger("Testing data is loaded")
@@ -143,11 +159,15 @@ class TempleNNTrainer():
 
         # Testing model
         self.test_model()
+        if (len(self.last_error) > 0):
+            return
 
         self.status_logger("Model has been tested. Testing accuracy is "+str(self.testing_accuracy))
         self.tested_model_flag=True
         # Save the model in the path specified
         self.save_model(self.save_model_path)
+        if (len(self.last_error) > 0):
+            return
         self.saved_model_flag=True
 
     def check_for_trained_model(self):
@@ -157,6 +177,23 @@ class TempleNNTrainer():
         load the model as the class attribute
         :return:
         '''
+        try:
+            save_to_path=self.save_model_path
+            model_arch_path = os.path.join(save_to_path, "model_architecture.json")
+            model_weights_path = os.path.join(save_to_path, "model_weights.h5")
+            model_extra_info_path = os.path.join(save_to_path, "extra_info.json")
+            f1=os.path.isfile(model_arch_path)
+            f2=os.path.isfile(model_weights_path)
+            f3=os.path.isfile(model_extra_info_path)
+
+            if f1 and f2 and f3:
+                self.pretrained_model_exists=True
+
+            assert not(f1 and f2 and f3 and not self.forceful),"Pre-trained model already exists. Make forceful=False if you want to overwrite"
+
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            self.error_logger(error_traceback, e)
         pass
 
     def get_config(self, config_file_path):

@@ -95,7 +95,8 @@ def train_model():
                               model_path=config["models_path"],
                               training_data_path=config["training_data_path"],
                               testing_data_path=config["testing_data_path"],
-                              log_path=config["logs_path"])
+                              log_path=config["logs_path"],
+                              forceful=request_json["forceful"])
 
         except Exception as e:
             print("Exception occured",e)

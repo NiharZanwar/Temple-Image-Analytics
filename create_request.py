@@ -41,7 +41,8 @@ if request_make_model_flag:
     model_id="410010"
 
     r = response = requests.post('http://localhost:5000/api/make_model', json={
-        "temple_id": "410010"
+        "temple_id": "410010",
+        "forceful":True
     })
     # "image":
     # print(str(base64.b64encode(f).decode('utf-8')))
