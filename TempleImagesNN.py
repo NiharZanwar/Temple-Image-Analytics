@@ -1,4 +1,5 @@
 # import the necessary packages
+from io import BytesIO
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.models import model_from_json
@@ -12,7 +13,7 @@ from tensorflow.keras.optimizers import Adam
 from sklearn.preprocessing import LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-# from PIL import Image
+from PIL import Image
 import cv2
 from imutils import paths
 # import imutils
@@ -189,7 +190,7 @@ class TempleNNTrainer():
             if f1 and f2 and f3:
                 self.pretrained_model_exists=True
 
-            assert not(f1 and f2 and f3 and not self.forceful),"Pre-trained model already exists. Make forceful=False if you want to overwrite"
+            assert not(f1 and f2 and f3 and not self.forceful),"Pre-trained model already exists. Make forceful=True if you want to overwrite"
 
         except Exception as e:
             error_traceback = traceback.format_exc()
@@ -540,6 +541,7 @@ class TempleNNTrainer():
             log_file.write("\n")
             log_file.write(message)
             log_file.write("\n")
+            log_file.write("\n")
 
 
 class TempleImagesPredictor():
@@ -561,7 +563,8 @@ class TempleImagesPredictor():
         '''
         # self.query_file_path=query_file_path
         self.path_to_models = None
-        self.input = None
+        self.image_names=[]
+        self.input = []
         self.temple_id = None
 
         self.predicted_classes = None
@@ -575,6 +578,8 @@ class TempleImagesPredictor():
         self.resized_image_shape = None
         self.class_labels = None
 
+        self.last_error=[]
+
         # self.parse_query_file()
 
         #self.error_logger("---------------------------------------------------------------------")
@@ -582,41 +587,65 @@ class TempleImagesPredictor():
         pass
 
     def get_model(self, nn_id):
-        # Path of the model to get
-        get_model_path = os.path.join(self.path_to_models, str(nn_id))
+        try:
+            self.status_logger("Model "+str(nn_id)+" not there in memory, fetching model from models directory")
+            # Path of the model to get
+            get_model_path = os.path.join(self.path_to_models, str(nn_id))
 
-        model_arch_path = os.path.join(get_model_path, "model_architecture.json")
-        model_weights_path = os.path.join(get_model_path, "model_weights.h5")
-        model_extra_info_path = os.path.join(get_model_path, "extra_info.json")
+            assert os.path.isdir(get_model_path),"Pretrained model at "+str(get_model_path)+" doesn't exist."
 
-        # Making the model from files
-        # Getting model architecture
-        with open(model_arch_path, 'r') as json_file:
-            loaded_model_json = json_file.read()
-        model = model_from_json(loaded_model_json)
 
-        # Getting model weights
-        model.load_weights(model_weights_path)
+            model_arch_path = os.path.join(get_model_path, "model_architecture.json")
+            model_weights_path = os.path.join(get_model_path, "model_weights.h5")
+            model_extra_info_path = os.path.join(get_model_path, "extra_info.json")
 
-        # Getting extra info
-        # Opening and reading contents of file as json
-        with open(model_extra_info_path, 'r') as extra_info_file:
-            extra_info_json = json.load(extra_info_file)
+            f1=os.path.isfile(model_arch_path)
+            f2=os.path.isfile(model_weights_path)
+            f3=os.path.isfile(model_extra_info_path)
 
-        # Now we have the json file. We'll set the attributes accordingly
-        model_class_labels = extra_info_json["class labels"]
-        model_resized_image_shape = tuple(extra_info_json["resized image shape"])
+            assert f1 and f2 and f3,"Model doesn't have all required files to load (architecture, weights and extra_info)."
 
-        # Compiling model to make it usable
-        opt = Adam(lr=1e-3,
-                   decay=1e-3 / 50)  # Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])
-        model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+            # Making the model from files
+            # Getting model architecture
+            with open(model_arch_path, 'r') as json_file:
+                loaded_model_json = json_file.read()
+            model = model_from_json(loaded_model_json)
 
-        # Adding the compiled model and extra info to models
-        self.models[nn_id] = {}
-        self.models[nn_id]["model"] = model
-        self.models[nn_id]["class_labels"] = model_class_labels
-        self.models[nn_id]["resized_image_shape"] = model_resized_image_shape
+            # Getting model weights
+            model.load_weights(model_weights_path)
+
+            # Getting extra info
+            # Opening and reading contents of file as json
+            with open(model_extra_info_path, 'r') as extra_info_file:
+                extra_info_json = json.load(extra_info_file)
+
+            # Now we have the json file. We'll set the attributes accordingly
+            model_class_labels = extra_info_json["class labels"]
+            model_resized_image_shape = tuple(extra_info_json["resized image shape"])
+
+            # Check for presence of all required attributes
+            a1 = model is not None
+            a2 = len(model_class_labels) != 0
+            a3 = model_resized_image_shape is not None
+
+            assert a1 and a2 and a3, "All required attributes not loaded"
+
+            # Compiling model to make it usable
+            opt = Adam(lr=1e-3,
+                       decay=1e-3 / 50)  # Adam(lr=self.hyperparameters["adam_learning_rate"], decay=self.hyperparameters["adam_decay"])
+            model.compile(loss="categorical_crossentropy", optimizer=opt, metrics=["accuracy"])
+
+
+
+            # Adding the compiled model and extra info to models
+            self.models[nn_id] = {}
+            self.models[nn_id]["model"] = model
+            self.models[nn_id]["class_labels"] = model_class_labels
+            self.models[nn_id]["resized_image_shape"] = model_resized_image_shape
+
+        except Exception as e:
+            error_traceback = traceback.format_exc()
+            self.error_logger(error_traceback, e)
 
     def load_model(self, nn_id):
         '''
@@ -631,6 +660,7 @@ class TempleImagesPredictor():
             if nn_id not in self.models:
                 self.get_model(nn_id)
 
+            self.status_logger("Trying to load model "+str(nn_id)+" to start predicting.")
             # Loading the model first
             self.current_model = self.models[nn_id]["model"]
 
@@ -660,7 +690,7 @@ class TempleImagesPredictor():
             self.error_logger(error_traceback,e)
             return (None)
 
-    def get_label(self, prediction, labels):
+    def get_label(self, prediction, labels,image_name):
         '''
         Given a prediction score list and labels, return the category that the image belongs to/Anomaly
         :param prediction: List of prediction scores (last layer output of model)
@@ -674,6 +704,15 @@ class TempleImagesPredictor():
             max_prediction_ind = np.argmax(prediction)
             # print("max_prediction_ind is",max_prediction_ind)
             max_prediction = prediction[max_prediction_ind]
+
+            #Write a status log, logging the probabilities of all classes
+            write_in_log=""
+            write_in_log+="Predicting class for image "+str(image_name)+"\n"
+            for i in range(len(labels)):
+                write_in_log+=str(labels[i])+" : "+str(prediction[i])+"\n"
+
+            self.status_logger(write_in_log)
+
             if max_prediction < self.min_confidence:
                 return ("No category (Anomaly)")
             else:
@@ -696,21 +735,19 @@ class TempleImagesPredictor():
         :param labels: Label to attach to the prediction (for human-readability)
         :return: give appropriate label to the image/data, with its prediction score
         '''
+        response = {"image_class": [], "class_confidence": [], "error_msg": self.last_error}
         try:
-            response = {"image_class": [], "class_confidence": [], "error_msg": "All OK"}
             nn_id = self.temple_id
             input = self.input
-            try:
-                self.load_model(nn_id)
-            except Exception as e:
-                response["error_msg"] = "Model does not exist/ Error in loading model"
-                error_traceback = traceback.format_exc()
-                self.error_logger(error_traceback,e)
-                return (response)
 
-            if self.current_model == None:
-                response["error_msg"] = "Model does not exist/ Error in loading model"
-                return (response)
+            assert nn_id is not None or nn_id is not "","Temple id is not given!"
+            assert input is not None,"Input cannot be None"
+
+            self.load_model(nn_id)
+            if len(self.last_error)!=0:
+                assert True,"Previous errors in execution"
+
+            assert self.current_model is not None,"Model does not exist/ Error in loading model"
 
             model = self.current_model
             labels = self.class_labels
@@ -719,11 +756,16 @@ class TempleImagesPredictor():
             # Preprocessing all images
             input = np.array([self.preprocess_image(image) for image in input])
 
+            if len(self.last_error)!=0:
+                assert True,"Previous errors in execution"
+
             # Apply model to each input and get the classes using the get_label() function
             predictions = model.predict(input)
-            for prediction in predictions:
-                response["image_class"].append(self.get_label(prediction, labels))
+            for i,prediction in enumerate(predictions):
+                response["image_class"].append(self.get_label(prediction, labels,self.image_names[i]))
                 response["class_confidence"].append(np.amax(prediction))
+
+
 
             print("response sent is", response)
             return (response)
@@ -731,7 +773,7 @@ class TempleImagesPredictor():
         except Exception as e:
             error_traceback = traceback.format_exc()
             self.error_logger(error_traceback,e)
-            return (None)
+            return (response)
 
         pass
 
@@ -755,25 +797,39 @@ class TempleImagesPredictor():
 
         self.input = data
 
-    def set_paths(self, path_to_models, log_path):
+    def set_paths(self, path_to_models, log_path, image_names, images, temple_id):
 
         self.path_to_models = path_to_models
         self.error_log_file_path=os.path.join(log_path,"error_log.txt")
         self.status_log_file_path=os.path.join(log_path,"log.txt")
+        self.temple_id=temple_id
+
+        self.image_names.extend(image_names)
+        self.input.extend(images)
 
     def parse_query_json(self, query):
         self.temple_id = query["temple id"]
-        imgdata = base64.b64decode(query["image"])
-        filetype_str = query["image type"].strip('.')
-        filename = 'query_image' + '.' + filetype_str
-        with open(filename, 'wb') as f:
-            f.write(imgdata)
+        bbuf=BytesIO()
+        bbuf.write(base64.b64decode(query["image"]))
+        pimg=Image.open(bbuf)
+        # imgdata = base64.b64decode(query["image"])
+        # img=np.frombuffer(base64.b64decode(query["image"]),np.uint8)
+        # print("Image is")
+        # print(img)
+        # filetype_str = query["image type"].strip('.')
+        # filename = 'query_image' + '.' + filetype_str
+        # with open(filename, 'wb') as f:
+        #     f.write(imgdata)
 
-        image = cv2.imread(filename)
+        # image = cv2.imread(filename)
+        image_name=[]
+        image_name.append(query["image_name"])
+        image=cv2.cvtColor(np.array(pimg),cv2.COLOR_RGB2BGR)
         data = []
         data.append(image)
 
         self.input = data
+        self.image_names=image_name
 
     def check_database_for_queries(self):
         '''
@@ -837,7 +893,8 @@ class TempleImagesPredictor():
         '''
         pass
 
-    def error_logger(self, message):
+    def error_logger(self, message,error):
+        self.last_error.append(error)
         with open(self.error_log_file_path, 'a') as log_file:
             log_file.write("[Error Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
@@ -849,4 +906,5 @@ class TempleImagesPredictor():
             log_file.write("[Status Log at "+str(datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S"))+" ]")
             log_file.write("\n")
             log_file.write(message)
+            log_file.write("\n")
             log_file.write("\n")

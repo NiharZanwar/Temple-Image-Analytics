@@ -1,3 +1,4 @@
+from PIL import Image
 from flask import Flask,render_template,request,abort,Response
 import TempleImagesNN
 import json
@@ -5,6 +6,10 @@ import os
 import sys
 import base64
 import traceback
+from io import BytesIO
+import cv2
+import numpy as np
+
 
 app = Flask(__name__)
 
@@ -111,7 +116,7 @@ def train_model():
         response["tested_model_flag"]=trainer.tested_model_flag
         response["saved_model_flag"]=trainer.saved_model_flag
 
-        return(Response(response=json.dumps(response),status=200 if response["error_msg"]==None else 500))
+        return(Response(response=json.dumps(response),status=200 if len(response["error_msg"])==0 else 500))
 
 
 
@@ -122,14 +127,28 @@ def train_model():
 def predict_json_request():
     global config
     if(request.method=='POST'):
+        request_json=request.get_json()
+
+        temple_id = request_json["temple id"]
+        bbuf = BytesIO()
+        bbuf.write(base64.b64decode(request_json["image"]))
+        pimg = Image.open(bbuf)
+        image_name = request_json["image_name"]
+        image = cv2.cvtColor(np.array(pimg), cv2.COLOR_RGB2BGR)
+        data = []
+        image_names=[]
+        image_names.append(image_name)
+        data.append(image)
+
+
         predictor=TempleImagesNN.TempleImagesPredictor()
-        predictor.set_paths(path_to_models=config["models_path"],log_path=config["logs_path"])
-        predictor.parse_query_json(request.get_json())
+        predictor.set_paths(path_to_models=config["models_path"],log_path=config["logs_path"],image_names=image_names,images=data,temple_id=temple_id)
+        #predictor.parse_query_json(request.get_json())
         response=predictor.predict()
-        if response["error_msg"]!="All OK":
-            return(json.dumps(str(response)),400)
+        if len(response["error_msg"])!=0:
+            return(Response(response=json.dumps(str(response)),status=400))
         else:
-            return(json.dumps(str(response)))
+            return(Response(response=json.dumps(str(response)),status=200))
 
 
 config={}
