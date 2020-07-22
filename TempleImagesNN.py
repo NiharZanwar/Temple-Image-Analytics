@@ -345,6 +345,7 @@ class TempleNNTrainer():
             self.model.add(Activation("relu"))
             self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
             self.model.add(Dropout(dropout_prob))
+
             self.model.add(Conv2D(16, (3, 3), padding="same"))
             self.model.add(Activation("relu"))
             self.model.add(MaxPooling2D(pool_size=(2, 2), strides=(2, 2)))
