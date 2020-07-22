@@ -121,6 +121,42 @@ Note- If a requested model is not present in the *models* list, the *get_model()
 Similar functioning to *preprocess_image()* of the *TempleNNTrainer* class.
 
 ### get_label()
-This method 
+This method takes in the prediction probabilities (output of trained model) of 1 image, and returns the label corresponding to the highest
+probability. 
+
+This method uses a *min_confidence* parameter (currently hardcoded to 0.5) that specifies the minimum probability required for the
+highest probability category for the method to output that category. In this example, if all categories have a probability score
+less than 0.5 (less than *min_confidence*), the method will return "No category (Anomaly)"
+
+The sum of the probabilities of all the categories is 1, so no two categories can have probability values greater than 0.5
+
+### predict()
+This is the most important method of the TempleNNPredictor class. It loads the required model (by calling the other methods),
+gets the predicted category of the image, and sends back a *response*(json) to the caller.
+
+This method has been tested on single image queries, but it could be tried on multiple image queries as well.
+
+The *response* contains the image's predicted label, the confidence for that label, and error messages (if an error occurs during execution)
+
+### set_paths()
+This function is similar to the *set_paths()* function in *TempleNNTrainer*. Parameters include:
+
+Parameters | Description
+-----------|------------
+_path_to_models_|Path containing all previously saved models. Used to load pre-trained models.
+_image_names_|Names of all the images in a list. The names and predicted probabilities will be recorded in the status log.
+_images_|All the images to run the prediction on, in a list
+_log_path_|Path for log files. During training error/status logs will be written here
+_temple_id_|Temple id of the temple. All *images* will have to belong to the same *temple_id*. This will be used to load the required model 
+
+### error_logger()
+This method has the same functionality of the *error_logger()* of the *TempleNNTrainer* class
+
+### status_logger()
+This method has the same functionality of the *status_logger()* of the *TempleNNTrainer* class
+
+When a request is given to predict the category that an image belongs to, the status log records the probabilities of all categories.
+In the response given back to the caller, only the highest class label and its probability are returned. Therefore, if we want more information/ troubleshoot a problem,
+we can look at the status logs.
 
 
