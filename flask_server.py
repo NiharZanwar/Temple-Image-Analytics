@@ -38,7 +38,7 @@ def prediction():
         form=request.form
 
         print("Query file is",form['query_file'])
-        predictor=TempleImagesNN.TempleImagesPredictor()
+        predictor=TempleImagesNN.TempleNNPredictor()
         predictor.parse_query_file(str(form['query_file']))
         response=predictor.predict()
 
@@ -141,7 +141,7 @@ def predict_json_request():
         data.append(image)
 
 
-        predictor=TempleImagesNN.TempleImagesPredictor()
+        predictor=TempleImagesNN.TempleNNPredictor()
         predictor.set_paths(path_to_models=config["models_path"],log_path=config["logs_path"],image_names=image_names,images=data,temple_id=temple_id)
         #predictor.parse_query_json(request.get_json())
         response=predictor.predict()

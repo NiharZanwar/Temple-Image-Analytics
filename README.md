@@ -12,6 +12,13 @@ Currently this model can satisfactorily classify between door_closed and door_op
 This module provides a set of functions that can be called from other modules to train Convolutional Neural Networks.
 More info about the proper inputs and outputs will be updated as the module is built.
 
+
+## _class : TempleNNTrainer_
+**This class is a part of the TempleImagesNN module. It provides methods to train, test and save CNN models.**
+
+**Explanation of the functions is given below**
+#
+
 ### set_paths()
 This function sets the paths to required folders and also sets the temple id for training. Parameters include
 
@@ -65,5 +72,55 @@ Early Stopping|*Not implemented for now*
 Method to obtain testing data from *testing_data_path*. This method expects the testing data in the same format as *get_training_data()*.
 
 Common categories has not been implemented here, but may be done in the future.
- 
+
+It is important to note that testing data must be different from training data, else, even if we get a high accuracy on testing data, the model may not work well later on.
+
+### test_model()
+Tests the model that was cretaed and trained on the testing data. It checks if the model's predictions are consistent with the testing_data categories.
+
+This method calculates the testing accuracy of the model. We can consider that the model can generalise well if it shows high accuracy on the testing dataset.
+
+### save_model()
+Saves the trained and tested model to the *model_path* directory with subdirectory named *temple_id*.
+
+This method saves 3 files in the *temple_id* subdirectory:
+
+Name|Type|Content
+---|---|----
+model_architecture.json|json file|Model architecture
+model_weights.h5|h5 file|Trained Model weights
+extra_info.json|json file|Contains (ordered) class labels and input image shape
+
+### error_logger()
+If an error is thrown in any of the above functions, this function is called. It writes the complete traceback of the error
+in *log_path/error_log.txt* and also appends the error to the *list_of_errors* (implemented as last_error) in the class. The
+*list_of_errors* will be used to form an appropriate response to a request (for more info read readme on flask_server.py).
+
+### status_logger()
+Any status updates are logged by this file. It writes the message in *log_path/log.txt*
+Status updates like model trained, model tested etc. are entered here.
+
+#
+
+## _class : TempleNNPredictor_
+**This class is a part of the TempleImagesNN module. It uses saved models to predict the category of new images.**
+
+**Explanation of the functions is given below**
+#
+### get_model()
+This method gets a saved model from *model_paths* and loads it into a list : *models*.
+This method is used if a model is requested and it is not already present in the *models* list.
+
+### load_model()
+This method loads a requested NN model as the *current_model* along with other attributes such as *resized_image_shape* and *class_labels*
+This *current_model* can then be used for predicting categories of an image.
+
+Note- If a requested model is not present in the *models* list, the *get_model()* function is called.
+
+### preprocess_image()
+Similar functioning to *preprocess_image()* of the *TempleNNTrainer* class.
+
+### get_label()
+This method 
+
 

@@ -545,7 +545,7 @@ class TempleNNTrainer():
             log_file.write("\n")
 
 
-class TempleImagesPredictor():
+class TempleNNPredictor():
 
     def __init__(self):
         '''
