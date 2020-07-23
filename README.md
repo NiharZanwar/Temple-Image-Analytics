@@ -1,14 +1,14 @@
 # Temple-Image-Analytics
 Train a Convolutional Network to Categorise Images and find anomalies
 
-## CNN_temple_open_closed.py
+##CNN_temple_open_closed.py
 This code takes training data as input and trains a CNN to learn to classify images as given in the training data.
 
 This code also takes in a new dataset to (manually) test the categorisation on. It involves making folders labelled with class names and transferring (resized versions) images to the categories predicted by the model. It also outputs the images that failed to classify as any class (threshold value=0.5). These images are termed "anomalies", while the images that successfully classify as some class are called "normal" images.
 
 Currently this model can satisfactorily classify between door_closed and door_opened images. Further experiments also assure that given enough pattern differences in the categories, the CNN (on training adequately) will classify well on more no. of categories as well.
 
-## TempleImagesNN.py
+## module: TempleImagesNN.py
 This module provides a set of functions that can be called from other modules to train Convolutional Neural Networks.
 More info about the proper inputs and outputs will be updated as the module is built.
 
@@ -158,5 +158,49 @@ This method has the same functionality of the *status_logger()* of the *TempleNN
 When a request is given to predict the category that an image belongs to, the status log records the probabilities of all categories.
 In the response given back to the caller, only the highest class label and its probability are returned. Therefore, if we want more information/ troubleshoot a problem,
 we can look at the status logs.
+
+
+## module: flask_server.py
+This module runs a flask app. The flask app can:
+1) Accept requests for uploading training/testing images to the appropriate folders (using the directory-subdirectory structure for the data images),
+2) Accept requests to train CNN models based on the training and testing data already provided, and to save these models for later use, and
+3) Accept requests to predict the category of a new image using pre-trained models
+
+Currently, the requests can be posted to the particular routes only in the json format. The *create_request.py* module contains
+code to make such requests to the flask app.
+
+The flask app also checks for the availability of some base folders.
+
+### main()
+Once the flask app is created, the program checks for the existence of some folders, in order to work smoothly later on.
+
+The main folder this program checks for is the config folder. The config folder should contain a config file that contains the paths
+of other base folders listed below:
+- training data : Contains training data
+- testing data  : Contains testing data
+- models    :   Contains saved models
+- logs  :   Contains the error and status logs
+- app   :   Should contain flask_server, TempleImagesNN, and all other required programs
+
+If any of these folders (or the config file) does not exist, the program will terminate.
+
+### app_route : /api/save_data
+This route accepts a json request containing the following data
+
+Key|Description|Datatype
+---|---|---
+*temple_id*|Temple id of the image that is being added|String
+*train_test*|Whether image has to be added to training or testing directory|String ("train"/"test")
+*category*|Category of the image.(The CNN model will learn from these categories)|String
+*image*|Image to be saved encoded in base64|Base64 string representing an image
+*image_type*|Filetype of the image.(Image will be saved as this filetype)|String (file extension eg. "jpg", "PNG" etc)
+*image_name*|Name to be given to the image file|String
+
+The program will then save the image sent as a request to the server, at the proper folder location, as mentioned by the keys
+*temple_id*, *train_test* and *category*
+
+A response will be sent back in json format. The json contains only one key i.e. error_msg.
+- If the save is successful, a status code of 200 is sent, and the error_msg will read "All OK".
+- If save is unsuccessful, a status code of 500 (server-side error) is sent, along with the error message in the error_msg key.
 
 
