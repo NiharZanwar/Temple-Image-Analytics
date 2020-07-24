@@ -1,7 +1,7 @@
 # Temple-Image-Analytics
 Train a Convolutional Network to Categorise Images and find anomalies
 
-##CNN_temple_open_closed.py
+## CNN_temple_open_closed.py
 This code takes training data as input and trains a CNN to learn to classify images as given in the training data.
 
 This code also takes in a new dataset to (manually) test the categorisation on. It involves making folders labelled with class names and transferring (resized versions) images to the categories predicted by the model. It also outputs the images that failed to classify as any class (threshold value=0.5). These images are termed "anomalies", while the images that successfully classify as some class are called "normal" images.
@@ -202,5 +202,72 @@ The program will then save the image sent as a request to the server, at the pro
 A response will be sent back in json format. The json contains only one key i.e. error_msg.
 - If the save is successful, a status code of 200 is sent, and the error_msg will read "All OK".
 - If save is unsuccessful, a status code of 500 (server-side error) is sent, along with the error message in the error_msg key.
+
+### app_route : /api/make_model
+This route accepts a json request containing the following data
+
+Key|Description|Datatype
+---|---|---
+*temple_id*|Temple id of the model to be trained|String
+*forceful*|Boolean value whether you want to overwrite a pre-trained model if it exists|Boolean (True/False)
+
+The program will:
+1) Check if a pretrained model exists.
+   - If yes, and *forceful* is False, throw error.
+   - If yes, and *forceful* is True, continue with training.
+   - If no, continue with training.
+2) Load training ang testing data from the appropriate folders to start the training process.
+3) Train the model on the training data.
+4) Test the model on testing data.
+5) Save the model to the *model_paths* directory and *temple_id* subdirectory.
+
+A response is sent back that contains the status code 
+- 200: request succeeded
+- 400: bad request
+
+as well as following information in json format:
+
+Key|Description|Datatype
+---|---|---
+*error_msg*|List of error messages that occured during execution. Will be [] if request is successful.|List of Strings
+*got_training_data_flag*|Boolean value whether training data was loaded properly|Boolean (True/False)
+*got_testing_data_flag*|Boolean value whether testing data was loaded properly|Boolean (True/False)
+*made_model_architecture_flag*|Boolean value whether model architecture was made|Boolean (True/False)
+*trained_model_flag*|Boolean value whether model was trained properly|Boolean (True/False)
+*tested_model_flag*|Boolean value whether model was tested properly|Boolean (True/False)
+*saved_model_flag*|Boolean value whether model was saved properly|Boolean (True/False)
+
+If an error occurs, the user can look at the flags to find out in which part did the error occur.
+The flags, along with the error messages and error log(containing complete error traceback) will help the user debug quickly.
+
+### app_route : /api/predict
+This route accepts a json request containing the following data
+
+Key|Description|Datatype
+---|---|---
+*temple_id*|Temple id of the image whose category has to be predicted|String
+*image*|Base64 representation of the image to be categorised|Base64 string representing the image
+*image_name*|Name of the image (Will be required to write the status log of the prediction)|String
+*image_type*|Type of the image file. (Not used as prediction is done on the image without saving the image as a file first)|String (eg. "jpg","PNG" etc.)
+
+The program will
+1) Load the model from the *models* list.
+   - If the model does not exist in the list, get the required model from the **models** directory, and then load it.
+2) Preprocess the image, and feed it to the trained CNN model. Get the output probabilities for categories.
+3) Using the output probabilities and the category labels, label the image with the category with highest probability.
+(Give label "No category (Anomaly)" if no category has probability >=0.5)
+4) Return a response containing the class label and the respective probability, along with error messages if errors occur.
+
+A response is sent back that contains the status code 
+- 200: request succeeded
+- 400: bad request
+
+as well as following information in json format:
+
+Key|Description|Datatype
+---|---|---
+*error_msg*|List of error messages that occured during execution. Will be [] if request is successful.|List of Strings
+*image_class*|Label given to the image based on the highest probability|String
+*class_confidence*|Highest probability (corresponding to the probability of *image_class*)|Float
 
 

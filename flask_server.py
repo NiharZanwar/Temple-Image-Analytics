@@ -116,7 +116,7 @@ def train_model():
         response["tested_model_flag"]=trainer.tested_model_flag
         response["saved_model_flag"]=trainer.saved_model_flag
 
-        return(Response(response=json.dumps(response),status=200 if len(response["error_msg"])==0 else 500))
+        return(Response(response=json.dumps(response),status=200 if len(response["error_msg"])==0 else 400))
 
 
 
@@ -137,14 +137,16 @@ def predict_json_request():
         image = cv2.cvtColor(np.array(pimg), cv2.COLOR_RGB2BGR)
         data = []
         image_names=[]
-        image_names.append(image_name)
-        data.append(image)
+        image_names.extend(image_name)
+        data.extend(image)
 
 
         predictor=TempleImagesNN.TempleNNPredictor()
         predictor.set_paths(path_to_models=config["models_path"],log_path=config["logs_path"],image_names=image_names,images=data,temple_id=temple_id)
         #predictor.parse_query_json(request.get_json())
         response=predictor.predict()
+        response["error_msg"] = [str(error) for error in predictor.last_error]
+
         if len(response["error_msg"])!=0:
             return(Response(response=json.dumps(str(response)),status=400))
         else:
