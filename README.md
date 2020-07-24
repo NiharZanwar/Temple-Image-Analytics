@@ -246,8 +246,8 @@ This route accepts a json request containing the following data
 Key|Description|Datatype
 ---|---|---
 *temple_id*|Temple id of the image whose category has to be predicted|String
-*image*|Base64 representation of the image to be categorised|Base64 string representing the image
-*image_name*|Name of the image (Will be required to write the status log of the prediction)|String
+*image*|(list) Base64 representation of the image to be categorised|Base64 string representing the image
+*image_name*|(list) Name of the image (Will be required to write the status log of the prediction)|String
 *image_type*|Type of the image file. (Not used as prediction is done on the image without saving the image as a file first)|String (eg. "jpg","PNG" etc.)
 
 The program will
@@ -267,7 +267,13 @@ as well as following information in json format:
 Key|Description|Datatype
 ---|---|---
 *error_msg*|List of error messages that occured during execution. Will be [] if request is successful.|List of Strings
-*image_class*|Label given to the image based on the highest probability|String
-*class_confidence*|Highest probability (corresponding to the probability of *image_class*)|Float
+*image_class*|(list) Label given to the image based on the highest probability|String
+*class_confidence*|(list) Highest probability (corresponding to the probability of *image_class*)|Float
 
-
+It is possible to give in a list of images rather than only single images. The (list) written in the tables mention that
+ either single images, or multiple images could be given. Testing has only been done on single image queries, but the program has been
+ made keeping batch image queries (all belonging to the same temple_id) in mind.
+ 
+ Eventhough only the highest probability and its associated class are returned to the user, the status logs record all the probabilities.
+ 
+ 
