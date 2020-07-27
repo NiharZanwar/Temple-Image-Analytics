@@ -6,8 +6,18 @@ import json
 from imutils import paths
 
 request_save_data_flag=False
+save_data_folder_path="E:\\PS1 SMARTi electronics\\Programs and Data\\Temple Original Images\\411010\\Training data"
+save_data_temple_id="410010"
+save_data_image_type="jpg"
+save_data_train_test="train"
+
 request_make_model_flag=False
+make_model_temple_id=
+make_model_forceful=
+
 request_predict_flag=True
+predict_temple_id=
+predict_image_path=
 
 def request_save_data(filename,category):
     #filename = "E:\\PS1 SMARTi electronics\\Programs and Data\\Temple Original Images\\411010\\Training data\\Door closed\\410010_CHB001_170420_003928_101_003928.jpg"
@@ -15,9 +25,9 @@ def request_save_data(filename,category):
     f = open(filename, "rb").read()
 
     r = response = requests.post('http://localhost:5000/api/save_data', json={
-        "temple_id": "410010",
-        "image_type": "jpg",
-        "train_test":"train",
+        "temple_id": save_data_temple_id,
+        "image_type": save_data_image_type,
+        "train_test":save_data_train_test,
         "category":category,
         "image_name":"image"+str(random.randint(1,10000000000)),
         "image": str(base64.b64encode(f).decode('utf-8'))
@@ -30,7 +40,7 @@ def request_save_data(filename,category):
 
 
 if request_save_data_flag==True:
-    imagepaths=list(paths.list_images("E:\\PS1 SMARTi electronics\\Programs and Data\\Temple Original Images\\411010\\Training data"))
+    imagepaths=list(paths.list_images(save_data_folder_path))
     for imagepath in imagepaths:
         category=imagepath.split(os.path.sep)[-2]
         request_save_data(imagepath,category)

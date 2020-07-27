@@ -1,7 +1,39 @@
 # Temple-Image-Analytics
-Train a Convolutional Network to Categorise Images and find anomalies
+This project uses Convolutional Neural Networks(CNN's) from **Keras** as its core. 
+With these programs you can train and manage several CNN's and use them to predict the category of new images. You can also
+find out whether a given image is an anomaly (i.e. does not belong to any known categories).
 
-## CNN_temple_open_closed.py
+**IMPORTANT**- Note that although this project has been created with the goal of categorising temple images, it can be used in any
+general purpose image-categorisation scenario as CNN's (the base of this project) are general purpose.
+
+Use cases include:
+- Cameras fitted at several similar establishments (temples, banks, shops, playgrounds etc.) and several categories of images in each of these
+establishments.
+- Categorising the images of a single establishment in multiple ways (eg. "Door open/closed" and "Lights on/off")
+- Any scenario in which one would want to save different "classifiers" and use them later on.
+
+## How to use
+A step-by-step guide on how to use this project.
+
+## Modules used in this project
+1) **keras**- This module is used to make, train and test the Convolutional Neural Networks.
+2) **Tensorflow**- This module is used as a backend for **keras**.
+3) **cv2**- OpenCV interface for Python. Used for handling images.
+4) **sklearn**- (Scikit-learn) Module to help in the preprocessing of data for training the CNN.
+5) **PIL**- (Python Imaging Library) Module used for image operations.
+6) **imutils**- Convenience module for getting paths to images.
+7) **os**- Module used for operations on directories and files.
+8) **base64**- Module used to convert data to base64.
+9) **json**- Module used to read json data format.
+10) **numpy**- To handle numpy array operations.
+11) **flask**- Module to make flask app.
+12) **requests**- Module to make requests.
+13) **traceback**- Used for logging errors.
+14) **datetime**- Used for logging errors.
+
+and other modules...
+
+## CNN_temple_open_closed.py (NOT USED)
 This code takes training data as input and trains a CNN to learn to classify images as given in the training data.
 
 This code also takes in a new dataset to (manually) test the categorisation on. It involves making folders labelled with class names and transferring (resized versions) images to the categories predicted by the model. It also outputs the images that failed to classify as any class (threshold value=0.5). These images are termed "anomalies", while the images that successfully classify as some class are called "normal" images.
@@ -276,4 +308,55 @@ It is possible to give in a list of images rather than only single images. The (
  
  Eventhough only the highest probability and its associated class are returned to the user, the status logs record all the probabilities.
  
+ 
+## module: create_request.py
+This module helps in creating requests and sending them to the Flask app in order to get a response back.
+This program helps to test the working of the flask app, and also get an idea of how the app works.
+
+It is important to note that in order to get a response back from the Flask app, it must be running in the first place.
+
+Three kinds of requests can be made in this program. Towards the top, three flags corresponding to the three request types
+can be set to True/False. If the flag is False, the request isn't sent, and if its True, the request is sent.
+
+### Request 1: Save Images/Data
+This request is sent if *request_save_data_flag* is True. The following variables can be configured for a save_data request:
+
+Variable|Description
+---|---
+*save_data_folder_path*|Path of the folder containing categorised images
+*save_data_temple_id*|Temple id of the images being saved
+_save_data_image_type_|Filetype of the image being saved (eg. "jpg","PNG" etc.)
+_save_data_train_test_|Whether the data is for training directory or testing directory.
+
+A save images request baisically forms a copy of the *save_data_folder_path* in the **training** or **testing** directory.
+All the categories are found out from the second-to-last element in the path (last element being the name of the image).
+
+### Request 2: Make model
+This request is sent if *request_make_model_flag* is True. The following variables can be configured for a make_model request:
+
+Variable|Description
+---|---
+*make_model_temple_id*|Temple id of the images the model is to be trained on.
+_make_model_forceful_|Whether a previous model has to be overwritten if it exists.
+
+This request tells the flask app to train a new CNN model whose image data belongs to temple id=*make_model_temple_id*
+
+If there is no error in the process, then the result will be a trained model that is saved in the **models**/**temple_id** directory.
+
+### Request 3: Predict
+This request is sent if *request_predict_flag* is True. The following variables can be configured for a predict request:
+
+Variable|Description
+---|---
+*predict_temple_id*|Temple id of the image whose category is to be predicted.
+_predict_image_path_|File path of the image.
+
+This request tells the flask app to use a pre-trained CNN models to predict the category of a new image.
+
+
+
+
+
+
+
  
