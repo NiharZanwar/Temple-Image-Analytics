@@ -31,7 +31,7 @@ have generated.
 4) Now, run the flask app. Hopefully, the app runs without error. If errors occur, one reason may be because you haven't created the
 directories at the place specified in the config file.
 5) Now, we should create some training and testing data for the CNN model to train on. Use the save_data request in create_request.py or make your own request.
-   - Refer to [Note: Training and Testing data](#note:-training-and-testing-data) to understand how to provide data for good results.
+   - Refer to [Note: Training and Testing data](#note-training-and-testing-data) to understand how to provide data for good results.
 6) Upload image and category data for a particular temple id. Do this for both training and testing data. Make sure that the training data and testing data
 are different from each other.
 7) Now we have training and testing data present in the respective folders, under the *temple_id* subdirectory.
