@@ -1,5 +1,5 @@
 import requests
-import base64
+import pybase64 as base64
 import random
 import os
 import json
@@ -12,12 +12,12 @@ save_data_image_type="jpg"
 save_data_train_test="train"
 
 request_make_model_flag=False
-make_model_temple_id=
-make_model_forceful=
+make_model_temple_id=""
+make_model_forceful=False
 
 request_predict_flag=True
-predict_temple_id=
-predict_image_path=
+predict_temple_id=""
+predict_image_path=""
 
 def request_save_data(filename,category):
     #filename = "E:\\PS1 SMARTi electronics\\Programs and Data\\Temple Original Images\\411010\\Training data\\Door closed\\410010_CHB001_170420_003928_101_003928.jpg"

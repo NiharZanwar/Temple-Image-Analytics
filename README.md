@@ -15,6 +15,38 @@ establishments.
 ## How to use
 A step-by-step guide on how to use this project.
 
+1) Open command prompt/ terminal and install all the packages in the requirements.txt file. You can
+do this by typing in the command ```pip install -r requirements.txt```
+2) Determine the paths of the following directories and make a config file containing those paths. Add the
+json file to config directory
+   - training data
+   - testing data
+   - config
+   - models
+   - logs
+   - app(Not required)
+3) Make sure all the above directories have been created (preferably inside one single parent directory). 
+Then, in the flask app, under the main method (under ```if __name__=="__main__"```) set the *path_to_config* to the path of the config file you
+have generated.
+4) Now, run the flask app. Hopefully, the app runs without error. If errors occur, one reason may be because you haven't created the
+directories at the place specified in the config file.
+5) Now, we should create some training and testing data for the CNN model to train on. Use the save_data request in create_request.py or make your own request.
+   - Refer to A note about training and testing data to understand how to provide data for good results.
+6) Upload image and category data for a particular temple id. Do this for both training and testing data. Make sure that the training data and testing data
+are different from each other.
+7) Now we have training and testing data present in the respective folders, under the *temple_id* subdirectory.
+8) Next, we will create a request to make a model on the image data we provided. Use  the make_model request in create_request.py or make your own.
+9) On making and sending the make_model request, the TempleNNTrainer object will start training a model. If errors occur,most of them
+will be passed back in the form of a Response(json format) and an error log will be added. You can use these to make sure the training process runs smoothly.
+10) If the training completes successfully (http code:200), then a saved model will be written (or overwritten) to **models**/**temple_id** directory.
+11) Next, we will check our model's predictions on a new image. For this, use the predict request in create_request.py (or make your own request)
+If the request is successful, you will get back a response with the category label with the highest probability 
+(if no category has a higher probability than *min_confidence*, then the program returns "No category (Anomaly)") 
+12) You can train several other models on data that you provide. All the models will be saved and will be available when you want to
+predict the category of a new image.
+13) If you are done using the flask app, you can shut it down by terminating the flask_server.py program.
+
+
 ## Modules used in this project
 1) **keras**- This module is used to make, train and test the Convolutional Neural Networks.
 2) **Tensorflow**- This module is used as a backend for **keras**.
@@ -33,12 +65,28 @@ A step-by-step guide on how to use this project.
 
 and other modules...
 
-## CNN_temple_open_closed.py (NOT USED)
-This code takes training data as input and trains a CNN to learn to classify images as given in the training data.
+## Note: Training and Testing Data
+In order to get good results for the prediction of the model, the points below will help
+1) Make sure you have enough of data of a particular category. In my tests, around 100-200 images per category were sufficient.
+If the model does not obtain good testing accuracy, and you have a lot of training data, consider increasing the number of epochs (currently 100) or tinkering with other parameters.
+2) Make sure the data in a particular category is diverse enough. The training data should be representative of the kind of images the model is likely
+to receive for prediction. Do not feed in too many images that are exactly the same. 
+3) I found that having a common category of images called "None of the categories"(with random images), was very helpful in avoiding labelling random images as one of the categories.
+   - The reason probably was that the CNN found some very small patterns that sufficed in segregating the images (like top-left corner is black/white,
+   some specific pixels have some specific colour etc.)
+   - Having "None of the categories images" with random images (eg. balloons, watches, animals, cars), probably helped in breaking those small patterns
+   and forced the CNN to come up with larger patterns(hopefully the features that we humans would use to categorise)
+   - Having diverse images for a single category could also help remove this problem.
+   - Thus, the "None of the categories" also functions as an "anomaly" flag
+4) If you want some category to be common to all of the models, add the category, with some image data to the **common** folder in the training data.
+Currently, only the training data contains the common folder functionality. The program handles the common folder on its own and includes it in the training of all models.
+   
+## make_config_file.py
+This module helps you to make a config file. This will be required for the working of the flask app.
 
-This code also takes in a new dataset to (manually) test the categorisation on. It involves making folders labelled with class names and transferring (resized versions) images to the categories predicted by the model. It also outputs the images that failed to classify as any class (threshold value=0.5). These images are termed "anomalies", while the images that successfully classify as some class are called "normal" images.
+The config files contains paths to all the important folders. The flask app will check for the existence of these folders before being available for post requests.
 
-Currently this model can satisfactorily classify between door_closed and door_opened images. Further experiments also assure that given enough pattern differences in the categories, the CNN (on training adequately) will classify well on more no. of categories as well.
+Query files are not implemented, so keep *create_query_flag*=False
 
 ## module: TempleImagesNN.py
 This module provides a set of functions that can be called from other modules to train Convolutional Neural Networks.
@@ -354,6 +402,12 @@ _predict_image_path_|File path of the image.
 This request tells the flask app to use a pre-trained CNN models to predict the category of a new image.
 
 
+## CNN_temple_open_closed.py (NOT USED)
+This code takes training data as input and trains a CNN to learn to classify images as given in the training data.
+
+This code also takes in a new dataset to (manually) test the categorisation on. It involves making folders labelled with class names and transferring (resized versions) images to the categories predicted by the model. It also outputs the images that failed to classify as any class (threshold value=0.5). These images are termed "anomalies", while the images that successfully classify as some class are called "normal" images.
+
+Currently this model can satisfactorily classify between door_closed and door_opened images. Further experiments also assure that given enough pattern differences in the categories, the CNN (on training adequately) will classify well on more no. of categories as well.
 
 
 

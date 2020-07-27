@@ -4,7 +4,7 @@ import TempleImagesNN
 import json
 import os
 import sys
-import base64
+import pybase64 as base64
 import traceback
 from io import BytesIO
 import cv2
